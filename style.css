@@ -30,7 +30,6 @@ body {
 }
 
 .text-wrapper {
-    /* Height will be set dynamically by JavaScript */
     overflow: hidden;
     position: relative;
     text-align: left;
@@ -38,7 +37,7 @@ body {
     border-radius: 5px;
     background-color: #34495e;
     padding: 10px;
-    box-sizing: border-box; /* This is crucial */
+    box-sizing: border-box;
 }
 
 .text-display {
