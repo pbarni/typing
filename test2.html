@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Font-Weight Demo</title>
+
+    <!-- 1. Import a VARIABLE font from Google Fonts -->
+    <!-- We are importing Roboto Mono with a weight axis from 100 to 700 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            padding: 2rem;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        p {
+            font-size: 2.5rem; /* Make the text large to see the effect clearly */
+            margin: 20px;
+            min-width: 500px; /* Prevent layout shift */
+        }
+        /* 2. Apply the fonts to the text elements */
+        #static-text {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #variable-text {
+            font-family: 'Roboto Mono', monospace;
+        }
+        .slider-container {
+            margin-top: 30px;
+            width: 80%;
+        }
+        label {
+            font-size: 1.2rem;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        #weight-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #007BFF;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Text with a STATIC font -->
+        <p id="static-text">Courier New</p>
+
+        <!-- Text with a VARIABLE font -->
+        <p id="variable-text">Roboto Mono</p>
+
+        <div class="slider-container">
+            <label for="weight-slider">font-weight: <span id="weight-value">400</span></label>
+            <input type="range" id="weight-slider" min="100" max="900" value="400" step="1">
+        </div>
+    </div>
+
+    <script>
+        // 3. JavaScript to dynamically update the font-weight
+        const slider = document.getElementById('weight-slider');
+        const staticText = document.getElementById('static-text');
+        const variableText = document.getElementById('variable-text');
+        const weightValue = document.getElementById('weight-value');
+
+        slider.addEventListener('input', function() {
+            const newWeight = this.value;
+
+            // Update the font-weight of both text elements
+            staticText.style.fontWeight = newWeight;
+            variableText.style.fontWeight = newWeight;
+
+            // Update the displayed value
+            weightValue.textContent = newWeight;
+        });
+    </script>
+
+</body>
+</html>

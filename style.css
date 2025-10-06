@@ -38,6 +38,7 @@ body {
     background-color: #34495e;
     padding: 10px;
     box-sizing: border-box;
+    cursor: text;
 }
 
 .text-display {
@@ -46,6 +47,8 @@ body {
     position: relative;
     transition: top 0.2s ease-out;
     top: 0;
+    /* NEW: Preserve wrapping for newlines and spaces */
+    white-space: pre-wrap;
 }
 
 .text-display span {
@@ -53,20 +56,37 @@ body {
     position: relative;
 }
 
-.text-display span.active {
-    background-color: #3498db;
-    color: #2c3e50;
-    border-radius: 2px;
-}
-
 .text-display span.correct {
     color: #2ecc71;
 }
 
+/* MODIFIED: Seamless underline for incorrect text */
 .text-display span.incorrect {
     color: #e74c3c;
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
+    text-decoration: none; /* Remove default underline */
+    border-bottom: 2px solid #e74c3c; /* Use border instead */
+    /* The trick to merge the borders of adjacent spans */
+    padding: 0 1px;
+    margin: 0 -1px;
+}
+
+.text-display span.cursor-block {
+    background-color: #52667a;
+    color: #ecf0f1;
+    border-radius: 3px;
+}
+
+.text-display span.selected {
+    background-color: #3498db;
+    color: #2c3e50;
+    border-radius: 2px;
+    padding: 2px 1px;
+    margin: -2px -1px;
+}
+
+/* NEW: Style for the visible newline character */
+.text-display span.newline {
+    color: #6a7c8e; /* Make it a bit more faded */
 }
 
 .text-input {
