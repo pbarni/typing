@@ -108,7 +108,7 @@ body {
     height: 3px;
     background-color: #e74c3c;
     left: 0;
-    bottom: 9px; /* Your chosen perfect distance */
+    bottom: 10px; /* Your chosen perfect distance */
 }
 
 /* The block cursor: Same shape as selection, different color */

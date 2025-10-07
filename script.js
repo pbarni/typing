@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         wordCount: 150,
         visibleLines: 5,
         scrollTargetLine: 2,
+        wordsPerLine: 12, // REFACTOR: Extracted "magic number"
     };
 
     const words = [
@@ -25,24 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getInitialState() {
         return {
-            originalText: '',
-            characters: [],
-            cursorPos: 0,
-            selectionEnd: 0,
-            layout: {
-                lineHeight: 0,
-                lineBreaks: [],
-            },
-            stats: {
-                startTime: null,
-                wpm: 0,
-                accuracy: 100,
-            },
+            originalText: '', characters: [], cursorPos: 0, selectionEnd: 0,
+            layout: { lineHeight: 0, lineBreaks: [] },
+            stats: { startTime: null, wpm: 0, accuracy: 100 },
             gameFinished: false,
         };
     }
 
-    // --- LOGIC MODULE (Unchanged) ---
+    // --- LOGIC MODULE ---
 
     const TypingLogic = {
         generateRandomText: (wordCount) => {
@@ -54,7 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let spaceCount = 0;
             return textString.replace(/ /g, () => {
                 spaceCount++;
-                return (spaceCount % 12 === 0) ? '\n' : ' ';
+                // REFACTOR: Use value from config object
+                return (spaceCount % config.wordsPerLine === 0) ? '\n' : ' ';
             });
         },
         updateCharacterState: (state) => {
@@ -106,60 +98,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- RENDERER MODULE (renderText is now replaced) ---
+    // --- RENDERER MODULE (Refactored) ---
 
     const Renderer = {
+        // REFACTOR: This is now a high-level orchestrator
         renderText: (state) => {
             const fragment = document.createDocumentFragment();
-            // This boolean is the master control for showing selection OR cursor
             const hasSelection = state.cursorPos !== state.selectionEnd;
 
             state.characters.forEach((charObj, index) => {
-                const span = document.createElement('span');
-
-                // Handle Newlines (Preserving '↵' logic)
-                if (charObj.char === '\n') {
-                    span.innerHTML = '↵';
-                } else {
-                    span.innerText = charObj.char;
-                }
-
-                // Apply base color and underline classes
-                span.classList.add(charObj.state);
-                if (charObj.state === 'incorrect') {
-                    span.classList.add('underline');
-                }
-
-                // --- MUTUALLY EXCLUSIVE LOGIC ---
-                if (hasSelection) {
-                    // If there's a selection, apply selection styles
-                    if (index >= state.cursorPos && index < state.selectionEnd) {
-                        span.classList.add('selected');
-                        if (index === state.cursorPos) span.classList.add('selection-start');
-                        if (index === state.selectionEnd - 1) span.classList.add('selection-end');
-                    }
-                } else {
-                    // If there is NO selection, apply the cursor style
-                    if (index === state.cursorPos) {
-                        span.classList.add('cursor');
-                    }
-                }
-                // --- END OF EXCLUSIVE LOGIC ---
-
-                fragment.appendChild(span);
+                const charElement = Renderer.createCharacterSpan(charObj, index, state, hasSelection);
+                fragment.appendChild(charElement);
             });
 
-            // Handle cursor at the very end of the text
             if (!hasSelection && state.cursorPos === state.originalText.length) {
-                const cursorSpan = document.createElement('span');
-                cursorSpan.innerHTML = '&nbsp;'; // Non-breaking space to give it dimensions
-                cursorSpan.classList.add('cursor');
-                fragment.appendChild(cursorSpan);
+                fragment.appendChild(Renderer.createEndOfTextCursor());
             }
 
             DOMElements.textDisplay.innerHTML = '';
             DOMElements.textDisplay.appendChild(fragment);
         },
+
+        // REFACTOR: New helper function for creating and styling a single character span
+        createCharacterSpan: (charObj, index, state, hasSelection) => {
+            const span = document.createElement('span');
+            
+            // Handle content (character or newline symbol)
+            if (charObj.char === '\n') {
+                span.innerHTML = '↵';
+            } else {
+                span.innerText = charObj.char;
+            }
+
+            // REFACTOR: Simplified class application
+            const classes = [charObj.state];
+            if (charObj.state === 'incorrect') {
+                classes.push('underline');
+            }
+
+            if (hasSelection) {
+                if (index >= state.cursorPos && index < state.selectionEnd) {
+                    classes.push('selected');
+                    if (index === state.cursorPos) classes.push('selection-start');
+                    if (index === state.selectionEnd - 1) classes.push('selection-end');
+                }
+            } else { // No selection, so show cursor
+                if (index === state.cursorPos) {
+                    classes.push('cursor');
+                }
+            }
+            
+            span.classList.add(...classes);
+            return span;
+        },
+
+        // REFACTOR: New helper function for the cursor at the end of the text
+        createEndOfTextCursor: () => {
+            const cursorSpan = document.createElement('span');
+            cursorSpan.innerHTML = '&nbsp;';
+            cursorSpan.classList.add('cursor');
+            return cursorSpan;
+        },
+
         renderStats: (state) => {
             DOMElements.wpmDisplay.innerText = state.stats.wpm;
             DOMElements.accuracyDisplay.innerText = state.stats.accuracy;
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- APPLICATION FLOW (Unchanged) ---
+    // --- APPLICATION FLOW ---
 
     function syncUI() {
         if (state.gameFinished) return;
@@ -207,12 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
         Renderer.renderStats(state);
         DOMElements.textInput.focus();
         requestAnimationFrame(() => {
-            Renderer.renderText(state); // Render first to ensure spans exist
+            Renderer.renderText(state);
             state.layout = TypingLogic.calculateLayout();
             Renderer.updateLayoutHeight(state.layout.lineHeight);
             const scrollPosition = TypingLogic.determineScrollPosition(state);
             Renderer.renderScroll(scrollPosition);
-            syncUI(); // Initial sync to show cursor
+            syncUI();
         });
     }
 
@@ -223,9 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 requestAnimationFrame(syncUI);
             });
         });
-
         DOMElements.textWrapper.addEventListener('click', (e) => {
-            // This click handler works correctly because we still have a 1-to-1 span-to-character ratio
             if (e.target.tagName === 'SPAN') {
                 const spans = Array.from(DOMElements.textDisplay.children);
                 const clickedIndex = spans.indexOf(e.target);
@@ -237,7 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
             DOMElements.textInput.focus();
             syncUI();
         });
-
         DOMElements.resetButton.addEventListener('click', startNewGame);
         window.addEventListener('resize', onResize);
         startNewGame();
