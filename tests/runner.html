@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vibe Code Typing - Test Runner</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 800px; margin: 2em auto; padding: 1em 2em; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1, h2 { color: #2c3e50; }
+        #test-form { margin-top: 1.5em; }
+        .test-option { display: block; margin-bottom: 0.5em; font-size: 1.1em; }
+        button { font-size: 1em; padding: 10px 20px; border-radius: 5px; border: none; background-color: #3498db; color: white; cursor: pointer; }
+        button:hover { background-color: #2980b9; }
+        p { line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Runner</h1>
+        <p>Select the test suites you want to run, then check the browser's developer console (F12) for the results.</p>
+        
+        <form id="test-form">
+            <h2>Available Tests</h2>
+            <div id="test-selection-container">
+                <!-- Checkboxes will be dynamically inserted here -->
+            </div>
+            <button type="submit">Run Selected Tests</button>
+        </form>
+    </div>
+
+    <div id="script-container"></div>
+
+    <script>
+        const AVAILABLE_TESTS = [
+            {
+                name: "TextGenerator",
+                testPath: "TextGenerator/TextGenerator.test.js",
+                componentPath: "../TextGenerator.js"
+            },
+            // {
+            //     name: "InputHandler",
+            //     testPath: "InputHandler/InputHandler.test.js",
+            //     componentPath: "../InputHandler.js"
+            // }
+        ];
+
+        const form = document.getElementById('test-form');
+        const selectionContainer = document.getElementById('test-selection-container');
+        const scriptContainer = document.getElementById('script-container');
+
+        function populateTestOptions() {
+            AVAILABLE_TESTS.forEach(test => {
+                const label = document.createElement('label');
+                label.className = 'test-option';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'tests';
+                checkbox.value = test.name;
+                
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(` ${test.name}`));
+                selectionContainer.appendChild(label);
+            });
+        }
+
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => resolve(script);
+                script.onerror = () => reject(new Error(`Script load error for ${src}`));
+                scriptContainer.appendChild(script);
+            });
+        }
+
+        async function runTestsFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const testsToRun = params.getAll('tests');
+
+            if (testsToRun.length === 0) return;
+
+            document.querySelectorAll('input[name="tests"]').forEach(checkbox => {
+                if (testsToRun.includes(checkbox.value)) {
+                    checkbox.checked = true;
+                }
+            });
+
+            scriptContainer.innerHTML = '';
+            await loadScript('test-framework.js');
+
+            for (const testName of testsToRun) {
+                const testConfig = AVAILABLE_TESTS.find(t => t.name === testName);
+                if (testConfig) {
+                    await loadScript(testConfig.componentPath);
+                    await loadScript(testConfig.testPath);
+                }
+            }
+
+            Test.summarize();
+        }
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const selectedTests = formData.getAll('tests');
+            
+            const newUrl = new URL(window.location.pathname, window.location.origin);
+            selectedTests.forEach(test => newUrl.searchParams.append('tests', test));
+            
+            window.location.href = newUrl.href;
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateTestOptions();
+            runTestsFromUrl();
+        });
+
+    </script>
+</body>
+</html>
