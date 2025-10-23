@@ -36,12 +36,7 @@
                 name: "TextGenerator",
                 testPath: "TextGenerator/TextGenerator.test.js",
                 componentPath: "../TextGenerator.js"
-            },
-            // {
-            //     name: "InputHandler",
-            //     testPath: "InputHandler/InputHandler.test.js",
-            //     componentPath: "../InputHandler.js"
-            // }
+            }
         ];
 
         const form = document.getElementById('test-form');
@@ -56,7 +51,6 @@
                 checkbox.type = 'checkbox';
                 checkbox.name = 'tests';
                 checkbox.value = test.name;
-                
                 label.appendChild(checkbox);
                 label.appendChild(document.createTextNode(` ${test.name}`));
                 selectionContainer.appendChild(label);
@@ -76,18 +70,24 @@
         async function runTestsFromUrl() {
             const params = new URLSearchParams(window.location.search);
             const testsToRun = params.getAll('tests');
-
             if (testsToRun.length === 0) return;
 
             document.querySelectorAll('input[name="tests"]').forEach(checkbox => {
-                if (testsToRun.includes(checkbox.value)) {
-                    checkbox.checked = true;
-                }
+                if (testsToRun.includes(checkbox.value)) checkbox.checked = true;
             });
 
             scriptContainer.innerHTML = '';
+            
+            // --- CRITICAL SCRIPT LOADING ORDER ---
+            // 1. Load the framework's modular "blueprints".
+            await loadScript('framework/Assertions.js');
+            await loadScript('framework/Collector.js');
+            await loadScript('framework/Reporter.js');
+
+            // 2. Load the main "factory" that assembles the framework.
             await loadScript('test-framework.js');
 
+            // 3. Load and run the selected tests.
             for (const testName of testsToRun) {
                 const testConfig = AVAILABLE_TESTS.find(t => t.name === testName);
                 if (testConfig) {
@@ -96,6 +96,7 @@
                 }
             }
 
+            // 4. Call the summarizer once all tests have run.
             Test.summarize();
         }
 
@@ -103,10 +104,8 @@
             event.preventDefault();
             const formData = new FormData(form);
             const selectedTests = formData.getAll('tests');
-            
             const newUrl = new URL(window.location.pathname, window.location.origin);
             selectedTests.forEach(test => newUrl.searchParams.append('tests', test));
-            
             window.location.href = newUrl.href;
         });
 
@@ -114,7 +113,6 @@
             populateTestOptions();
             runTestsFromUrl();
         });
-
     </script>
 </body>
 </html>
