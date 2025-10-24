@@ -28,6 +28,9 @@
         </form>
     </div>
 
+        <!-- THIS IS THE NEW SANDBOX ELEMENT -->
+    <div id="test-sandbox"></div>
+
     <div id="script-container"></div>
 
     <script>
@@ -36,12 +39,47 @@
                 name: "TextGenerator",
                 testPath: "TextGenerator/TextGenerator.test.js",
                 componentPath: "../TextGenerator.js"
+            },
+            {
+                name: "InputHandler",
+                testPath: "InputHandler/InputHandler.test.js",
+                componentPath: "../InputHandler.js"
+            },
+            {
+                name: "PerformanceAnalyzer",
+                testPath: "PerformanceAnalyzer/PerformanceAnalyzer.test.js",
+                componentPath: "../PerformanceAnalyzer.js"
+            },
+            {
+                name: "TypingJournal",
+                testPath: "TypingJournal/TypingJournal.test.js",
+                componentPath: "../TypingJournal.js"
+            },
+            {
+                name: "Renderer",
+                testPath: "Renderer/Renderer.test.js",
+                componentPath: "../Renderer.js"
+            },
+            {
+                name: "TypingGame",
+                testPath: "TypingGame/TypingGame.test.js",
+                componentPath: [
+                    "../TextGenerator.js",
+                    "../TypingJournal.js",
+                    "../InputHandler.js",
+                    "../PerformanceAnalyzer.js",
+                    "../Renderer.js",
+                    "../TypingGame.js"
+                ]
             }
         ];
 
         const form = document.getElementById('test-form');
         const selectionContainer = document.getElementById('test-selection-container');
         const scriptContainer = document.getElementById('script-container');
+        
+        // --- NEW: Keep track of loaded scripts ---
+        const loadedScripts = new Set();
 
         function populateTestOptions() {
             AVAILABLE_TESTS.forEach(test => {
@@ -58,10 +96,18 @@
         }
 
         function loadScript(src) {
+            // --- NEW: Check if script has already been loaded ---
+            if (loadedScripts.has(src)) {
+                return Promise.resolve(); // Immediately resolve if already loaded
+            }
+
             return new Promise((resolve, reject) => {
                 const script = document.createElement('script');
                 script.src = src;
-                script.onload = () => resolve(script);
+                script.onload = () => {
+                    loadedScripts.add(src); // Mark as loaded on success
+                    resolve(script);
+                };
                 script.onerror = () => reject(new Error(`Script load error for ${src}`));
                 scriptContainer.appendChild(script);
             });
@@ -77,26 +123,28 @@
             });
 
             scriptContainer.innerHTML = '';
-            
-            // --- CRITICAL SCRIPT LOADING ORDER ---
-            // 1. Load the framework's modular "blueprints".
+            loadedScripts.clear(); // Clear the set for a fresh run
+
             await loadScript('framework/Assertions.js');
             await loadScript('framework/Collector.js');
             await loadScript('framework/Reporter.js');
-
-            // 2. Load the main "factory" that assembles the framework.
             await loadScript('test-framework.js');
 
-            // 3. Load and run the selected tests.
             for (const testName of testsToRun) {
                 const testConfig = AVAILABLE_TESTS.find(t => t.name === testName);
                 if (testConfig) {
-                    await loadScript(testConfig.componentPath);
+                    const pathsToLoad = Array.isArray(testConfig.componentPath)
+                        ? testConfig.componentPath
+                        : [testConfig.componentPath];
+
+                    for (const path of pathsToLoad) {
+                        await loadScript(path);
+                    }
+
                     await loadScript(testConfig.testPath);
                 }
             }
 
-            // 4. Call the summarizer once all tests have run.
             Test.summarize();
         }
 

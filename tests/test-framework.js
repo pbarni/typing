@@ -11,13 +11,21 @@ const Test = (() => {
 
     const describe = (suiteName, suiteFn) => {
         Collector.startSuite(suiteName);
+        // Save the hooks from the current (parent) scope.
         const parentBeforeEach = currentBeforeEach;
         const parentAfterEach = currentAfterEach;
-        currentBeforeEach = null;
-        currentAfterEach = null;
+    
+        // We no longer nullify the hooks here. This allows this suite's children
+        // to inherit the hooks from the parent scope.
+    
         try {
+            // Run the suite's function. If it defines its own beforeEach,
+            // it will temporarily override the parent's.
             suiteFn();
         } finally {
+            // After the suite and all its children have finished, restore
+            // the hooks to what they were before this suite ran. This ensures
+            // sibling suites are not affected.
             currentBeforeEach = parentBeforeEach;
             currentAfterEach = parentAfterEach;
             Collector.endSuite();

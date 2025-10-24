@@ -1,7 +1,22 @@
 // PerformanceAnalyzer.js
 
+/**
+ * A static utility class for calculating typing performance metrics and generating
+ * UI state. All methods within this class are pure functions, meaning they produce
+ * output based solely on their inputs without side effects.
+ */
 class PerformanceAnalyzer {
-    // Generates character states based on the LIVE typed text from the textarea
+    /**
+     * Generates an array of character state objects by comparing the original text
+     * with the user's typed text. This array is used by the Renderer to display
+     * each character with the correct color (e.g., correct, incorrect, or default).
+     *
+     * @static
+     * @param {string} originalText The source text for the typing test.
+     * @param {string} typedText The current text as typed by the user.
+     * @returns {{char: string, state: 'correct'|'incorrect'|'default'}[]} An array of objects,
+     *   where each object contains a character from the original text and its current state.
+     */
     static generateCharacterState(originalText, typedText) {
         return originalText.split('').map((char, index) => {
             const typedChar = typedText[index];
@@ -13,7 +28,17 @@ class PerformanceAnalyzer {
         });
     }
 
-    // Calculates stats based on the LIVE typed text
+    /**
+     * Calculates live statistics, including Words Per Minute (WPM) and accuracy.
+     * NOTE: The WPM calculation is currently a placeholder and will require a timer
+     * implementation (e.g., tracking a start time) to be functional.
+     *
+     * @static
+     * @param {string} originalText The source text for the typing test.
+     * @param {string} typedText The current text as typed by the user.
+     * @returns {{wpm: number, accuracy: number}} An object containing the calculated
+     *   WPM and the accuracy percentage (rounded to the nearest whole number).
+     */
     static calculateLiveStats(originalText, typedText) {
         if (typedText.length === 0) {
             return { wpm: 0, accuracy: 100 };
