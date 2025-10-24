@@ -13,26 +13,43 @@ function createAssertionsModule() {
         return true;
     };
 
+    const createError = (message, customData) => {
+        const error = new Error(message);
+        // Attach custom properties for the reporter to use
+        Object.assign(error, customData);
+        return error;
+    };
+
     const assertEqual = (actual, expected, message) => {
         if (actual !== expected) {
-            const m = message ? `\n  Message:  ${message}` : '';
-            throw new Error(`ASSERTION FAILED:${m}\n  Expected: "${expected}"\n  Actual:   "${actual}"`);
+            throw createError(`Assertion Failed: Expected "${expected}" but got "${actual}"`, {
+                customMessage: message,
+                expected: expected,
+                actual: actual,
+                type: 'assertEqual'
+            });
         }
     };
 
     const assertDeepEqual = (actual, expected, message) => {
         if (!deepEqual(actual, expected)) {
-            const m = message ? `\n  Message:  ${message}` : '';
-            const a = JSON.stringify(actual, null, 2);
-            const e = JSON.stringify(expected, null, 2);
-            throw new Error(`ASSERTION FAILED:${m}\n  Expected:\n${e}\n\n  Actual:\n${a}`);
+             throw createError('Assertion Failed: Objects are not deeply equal', {
+                customMessage: message,
+                expected: expected,
+                actual: actual,
+                type: 'assertDeepEqual'
+            });
         }
     };
 
     const assertTrue = (value, message) => {
         if (!value) {
-            const m = message ? `\n  Message:  ${message}` : '';
-            throw new Error(`ASSERTION FAILED:${m}\n  Expected: true\n  Actual:   ${value}`);
+            throw createError(`Assertion Failed: Expected true but got ${value}`, {
+                customMessage: message,
+                expected: true,
+                actual: value,
+                type: 'assertTrue'
+            });
         }
     };
 

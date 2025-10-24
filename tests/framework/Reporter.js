@@ -23,10 +23,10 @@ function createReporterModule() {
 
         if (total > 0) {
             console.groupCollapsed(`%c${groupLabel}`, groupColor);
-        } else if (suite.children.length > 0) { // Only print suites that contain other suites
+        } else if (suite.children.length > 0) {
             console.groupCollapsed(groupLabel);
         } else {
-             return; // Don't print empty suites
+             return;
         }
 
         const failedTests = suite.children.filter(c => c.status === 'FAIL');
@@ -36,12 +36,35 @@ function createReporterModule() {
         if (failedTests.length > 0) {
             console.group(`%c✗ Failed Tests`, 'color: #e74c3c;');
             failedTests.forEach(test => {
-                console.groupCollapsed(`%c${test.name}`, 'color: #e74c3c;');
-                console.error(test.error);
-                console.groupEnd();
+                const { customMessage, expected, actual } = test.error;
+
+                // --- NEW: Custom Formatted Output ---
+                // Start with the test name
+                let summary = [`%c✗ ${test.name}`];
+                let styles = ['color: #e74c3c; font-weight: bold;'];
+                
+                // Build a clean, multi-line details string
+                let details = '';
+                if (customMessage) {
+                    details += `\n    Message:  ${customMessage}`;
+                }
+                // Use JSON.stringify to handle objects and strings gracefully
+                if (expected !== undefined) {
+                    details += `\n    Expected: ${JSON.stringify(expected)}`;
+                }
+                if (actual !== undefined) {
+                    details += `\n    Actual:   ${JSON.stringify(actual)}`;
+                }
+
+                // Append the details as a normal, un-styled string part
+                summary[0] += details;
+
+                // Log the formatted summary
+                console.log(summary.join(''), ...styles);
             });
             console.groupEnd();
         }
+
         if (passedTests.length > 0) {
             console.groupCollapsed(`%c✓ Passed Tests`, 'color: #2ecc71;');
             passedTests.forEach(test => console.log(`%c${test.name}`, 'color: #2ecc71;'));
@@ -54,7 +77,6 @@ function createReporterModule() {
     return {
         summarize(testTree) {
             console.group("--- Test Summary ---");
-            // Start printing from the root's children to avoid the outer "Test Suite" group
             testTree.children.forEach(suite => printSuite(suite));
 
             const finalStats = collectStats(testTree);
