@@ -1,13 +1,11 @@
 // tests/test-framework.js
 
 const Test = (() => {
-    // 1. Build the private modules by calling their factory functions.
-    // These functions must be defined in scripts loaded before this one.
+    // ... (Assertions, Collector, Reporter modules are built here as before) ...
     const Assertions = createAssertionsModule();
     const Collector = createCollectorModule();
     const Reporter = createReporterModule();
 
-    // 2. Define the public-facing functions that orchestrate the modules.
     let currentBeforeEach = null;
     let currentAfterEach = null;
 
@@ -29,7 +27,6 @@ const Test = (() => {
     const it = (description, testFn) => {
         try {
             if (currentBeforeEach) currentBeforeEach();
-            // testFn will use the public Assertions API, which will throw on failure.
             testFn();
             Collector.addTestResult({ name: description, status: 'PASS' });
         } catch (error) {
@@ -39,19 +36,34 @@ const Test = (() => {
         }
     };
 
+    // --- NEW FUNCTION ---
+    // Takes an array of test case data.
+    // Returns a function that you can call with the test name and logic.
+    it.each = (cases) => (descriptionTemplate, testFn) => {
+        cases.forEach(caseData => {
+            // Create a dynamic test description from the template
+            const description = descriptionTemplate.replace(
+                /\{(\w+)\}/g,
+                (match, key) => caseData[key] ?? match // Replace {key} with caseData.key
+            );
+            
+            // Run the original 'it' function for each case
+            it(description, () => testFn(caseData));
+        });
+    };
+
     const summarize = () => {
         const results = Collector.getResults();
         Reporter.summarize(results);
-        Collector.initialize(); // Reset for a potential re-run on the same page
+        Collector.initialize();
     };
-
-    // 3. Initialize the stateful module.
+    
     Collector.initialize();
 
-    // 4. Return the public API (the Façade).
+    // --- UPDATED PUBLIC API ---
     return {
         describe,
-        it,
+        it, // The original 'it' is still here and fully functional
         beforeEach: (fn) => { currentBeforeEach = fn; },
         afterEach: (fn) => { currentAfterEach = fn; },
         summarize,

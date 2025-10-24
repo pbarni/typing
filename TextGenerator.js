@@ -6,17 +6,33 @@ class TextGenerator {
     ];
 
     static generate(wordCount, wordsPerLine) {
-        let text = [];
-        for (let i = 0; i < wordCount; i++) {
-            text.push(this.words[Math.floor(Math.random() * this.words.length)]);
+        if (wordCount === 0) {
+            return "";
         }
-        let textString = text.join(' ');
-        
-        // Add line breaks for formatting
-        let spaceCount = 0;
-        return textString.replace(/ /g, () => {
-            spaceCount++;
-            return (spaceCount % wordsPerLine === 0) ? '\n' : ' ';
-        });
+
+        // 1. Generate the full list of words.
+        const words = [];
+        for (let i = 0; i < wordCount; i++) {
+            words.push(this.words[Math.floor(Math.random() * this.words.length)]);
+        }
+
+        // 2. Group the words into lines.
+        const lines = [];
+        for (let i = 0; i < words.length; i += wordsPerLine) {
+            const chunk = words.slice(i, i + wordsPerLine);
+            lines.push(chunk.join(' '));
+        }
+
+        // 3. Join the lines. This places '\n' *between* elements.
+        // For N lines, this creates N-1 newlines.
+        let result = lines.join('\n');
+
+        // 4. The tests require a trailing newline if the word count is a perfect
+        //    multiple of wordsPerLine. This adds the final, missing newline.
+        if (wordCount > 0 && wordCount % wordsPerLine === 0) {
+            result += '\n';
+        }
+
+        return result;
     }
 }
