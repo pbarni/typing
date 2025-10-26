@@ -1,9 +1,9 @@
 // tests/test-framework.js
 
 // --- NEW: Import the dependencies from their modules ---
-import { createAssertionsModule } from './framework/Assertions.js';
-import { createCollectorModule } from './framework/Collector.js';
-import { createReporterModule } from './framework/Reporter.js';
+import { createAssertionsModule } from './Assertions.js';
+import { createCollectorModule } from './Collector.js';
+import { createReporterModule } from './Reporter.js';
 
 // --- NEW: Export the final 'Test' object so the runner can import it ---
 export const Test = (() => {

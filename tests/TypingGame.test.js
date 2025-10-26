@@ -1,7 +1,7 @@
 // tests/TypingGame/TypingGame.test.js
 
-import { Test } from '../test-framework.js';
-import { TypingGame } from '../../TypingGame.js';
+import { Test } from './framework/test-framework.js';
+import { TypingGame } from '../TypingGame.js';
 
 Test.describe("TypingGame", () => {
     let game;

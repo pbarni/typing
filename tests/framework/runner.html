@@ -46,12 +46,12 @@
         // With ESM, we only need to know the entry point for each test suite.
         // The browser will handle loading all nested dependencies.
         const AVAILABLE_TESTS = [
-            { name: "TextGenerator", testPath: "./TextGenerator/TextGenerator.test.js" },
-            { name: "InputHandler", testPath: "./InputHandler/InputHandler.test.js" },
-            { name: "PerformanceAnalyzer", testPath: "./PerformanceAnalyzer/PerformanceAnalyzer.test.js" },
-            { name: "TypingJournal", testPath: "./TypingJournal/TypingJournal.test.js" },
-            { name: "Renderer", testPath: "./Renderer/Renderer.test.js" },
-            { name: "TypingGame", testPath: "./TypingGame/TypingGame.test.js" },
+            { name: "TextGenerator", testPath: "../TextGenerator.test.js" },
+            { name: "InputHandler", testPath: "../InputHandler.test.js" },
+            { name: "PerformanceAnalyzer", testPath: "../PerformanceAnalyzer.test.js" },
+            { name: "TypingJournal", testPath: "../TypingJournal.test.js" },
+            { name: "Renderer", testPath: "../Renderer.test.js" },
+            { name: "TypingGame", testPath: "../TypingGame.test.js" },
         ];
 
         const form = document.getElementById('test-form');
@@ -78,10 +78,10 @@
             try {
                 // Dynamically import the framework modules.
                 // The browser's module cache prevents re-execution.
-                await import('./framework/Assertions.js');
-                await import('./framework/Collector.js');
-                await import('./framework/Reporter.js');
-                const { Test } = await import('./test-framework.js');
+                await import('./Assertions.js'); // Path changed
+                await import('./Collector.js');  // Path changed
+                await import('./Reporter.js');   // Path changed
+                const { Test } = await import('./test-framework.js'); // Path changed
 
                 // Loop through and load each selected test module.
                 for (const testName of testsToRun) {

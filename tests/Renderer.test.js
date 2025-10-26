@@ -1,7 +1,7 @@
 // tests/Renderer/Renderer.test.js
 
-import { Test } from '../test-framework.js';
-import { Renderer } from '../../Renderer.js';
+import { Test } from './framework/test-framework.js';
+import { Renderer } from '../Renderer.js';
 
 Test.describe("Renderer", () => {
     let renderer;

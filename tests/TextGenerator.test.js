@@ -1,7 +1,7 @@
 // tests/TextGenerator/TextGenerator.test.js
 
-import { Test } from '../test-framework.js';
-import { TextGenerator } from '../../TextGenerator.js';
+import { Test } from './framework/test-framework.js';
+import { TextGenerator } from '../TextGenerator.js';
 
 Test.describe("TextGenerator.generate()", () => {
 

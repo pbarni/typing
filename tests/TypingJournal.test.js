@@ -1,7 +1,7 @@
 // tests/TypingJournal/TypingJournal.test.js
 
-import { Test } from '../test-framework.js';
-import { TypingJournal } from '../../TypingJournal.js';
+import { Test } from './framework/test-framework.js';
+import { TypingJournal } from '../TypingJournal.js';
 
 Test.describe("TypingJournal", () => {
 
