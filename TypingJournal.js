@@ -6,7 +6,7 @@
  * allowing for complex operations like replaying state to determine cursor position
  * or rewinding the log to a specific point in time.
  */
-class TypingJournal {
+export class TypingJournal {
     /**
      * Creates a new TypingJournal instance for a typing session.
      * @param {string} text The original, correct text for the typing test.

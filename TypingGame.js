@@ -1,12 +1,17 @@
 // TypingGame.js
 
+import { TextGenerator } from './TextGenerator.js';
+import { TypingJournal } from './TypingJournal.js';
+import { PerformanceAnalyzer } from './PerformanceAnalyzer.js';
+import { Renderer } from './Renderer.js';
+
 /**
  * The main controller class for the typing game. It orchestrates all other modules
  * to manage the game's state, handle user input, and render the UI. This class
  * acts as the central hub, connecting the data models (Journal), logic modules
  * (PerformanceAnalyzer, InputHandler), and the view layer (Renderer).
  */
-class TypingGame {
+export class TypingGame {
     /**
      * Creates a new TypingGame instance.
      * @param {object} config - The application's configuration settings.

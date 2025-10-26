@@ -1,6 +1,6 @@
 // tests/framework/Assertions.js
 
-function createAssertionsModule() {
+export function createAssertionsModule() {
     const deepEqual = (a, b) => {
         if (a === b) return true;
         if (a === null || typeof a !== 'object' || b === null || typeof b !== 'object') return false;

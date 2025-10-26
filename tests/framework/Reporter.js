@@ -1,6 +1,6 @@
 // tests/framework/Reporter.js
 
-function createReporterModule() {
+export function createReporterModule() {
     const collectStats = (suite) => {
         let stats = { passed: 0, failed: 0 };
         for (const child of suite.children) {

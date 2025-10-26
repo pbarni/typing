@@ -6,7 +6,7 @@
  * It operates on a "write-only" basis, receiving state from the main game
  * controller and translating it into visual output without modifying the game state itself.
  */
-class Renderer {
+export class Renderer {
     /**
      * Creates a new Renderer instance.
      * @param {object} domElements An object containing references to the key DOM elements.

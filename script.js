@@ -1,5 +1,7 @@
 // script.js
 
+import { TypingGame } from './TypingGame.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Define configuration
     const config = {

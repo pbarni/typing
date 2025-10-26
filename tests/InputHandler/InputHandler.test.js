@@ -1,5 +1,8 @@
 // tests/InputHandler/InputHandler.test.js
 
+import { Test } from '../test-framework.js';
+import { InputHandler } from '../../InputHandler.js';
+
 Test.describe("InputHandler.process()", () => {
 
     // --- Test Setup ---

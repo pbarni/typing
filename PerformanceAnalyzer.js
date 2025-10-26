@@ -5,7 +5,7 @@
  * UI state. All methods within this class are pure functions, meaning they produce
  * output based solely on their inputs without side effects.
  */
-class PerformanceAnalyzer {
+export class PerformanceAnalyzer {
     /**
      * Generates an array of character state objects by comparing the original text
      * with the user's typed text. This array is used by the Renderer to display

@@ -1,31 +1,30 @@
 // tests/test-framework.js
 
-const Test = (() => {
-    // ... (Assertions, Collector, Reporter modules are built here as before) ...
+// --- NEW: Import the dependencies from their modules ---
+import { createAssertionsModule } from './framework/Assertions.js';
+import { createCollectorModule } from './framework/Collector.js';
+import { createReporterModule } from './framework/Reporter.js';
+
+// --- NEW: Export the final 'Test' object so the runner can import it ---
+export const Test = (() => {
+    // 1. Build the private modules by calling their factory functions.
+    // This code now works because the functions have been imported.
     const Assertions = createAssertionsModule();
     const Collector = createCollectorModule();
     const Reporter = createReporterModule();
 
+    // 2. Define the public-facing functions that orchestrate the modules.
     let currentBeforeEach = null;
     let currentAfterEach = null;
 
     const describe = (suiteName, suiteFn) => {
         Collector.startSuite(suiteName);
-        // Save the hooks from the current (parent) scope.
         const parentBeforeEach = currentBeforeEach;
         const parentAfterEach = currentAfterEach;
-    
-        // We no longer nullify the hooks here. This allows this suite's children
-        // to inherit the hooks from the parent scope.
-    
+        
         try {
-            // Run the suite's function. If it defines its own beforeEach,
-            // it will temporarily override the parent's.
             suiteFn();
         } finally {
-            // After the suite and all its children have finished, restore
-            // the hooks to what they were before this suite ran. This ensures
-            // sibling suites are not affected.
             currentBeforeEach = parentBeforeEach;
             currentAfterEach = parentAfterEach;
             Collector.endSuite();
@@ -43,19 +42,13 @@ const Test = (() => {
             if (currentAfterEach) currentAfterEach();
         }
     };
-
-    // --- NEW FUNCTION ---
-    // Takes an array of test case data.
-    // Returns a function that you can call with the test name and logic.
+    
     it.each = (cases) => (descriptionTemplate, testFn) => {
         cases.forEach(caseData => {
-            // Create a dynamic test description from the template
             const description = descriptionTemplate.replace(
                 /\{(\w+)\}/g,
-                (match, key) => caseData[key] ?? match // Replace {key} with caseData.key
+                (match, key) => caseData[key] ?? match
             );
-            
-            // Run the original 'it' function for each case
             it(description, () => testFn(caseData));
         });
     };
@@ -65,13 +58,14 @@ const Test = (() => {
         Reporter.summarize(results);
         Collector.initialize();
     };
-    
+
+    // 3. Initialize the stateful module.
     Collector.initialize();
 
-    // --- UPDATED PUBLIC API ---
+    // 4. Return the public API (the Façade).
     return {
         describe,
-        it, // The original 'it' is still here and fully functional
+        it,
         beforeEach: (fn) => { currentBeforeEach = fn; },
         afterEach: (fn) => { currentAfterEach = fn; },
         summarize,

@@ -7,10 +7,16 @@
         body { font-family: sans-serif; background-color: #f4f4f9; color: #333; }
         .container { max-width: 800px; margin: 2em auto; padding: 1em 2em; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h1, h2 { color: #2c3e50; }
-        #test-form { margin-top: 1.5em; }
+        #test-form { margin-top: 1.5em; display: flex; flex-direction: column; align-items: flex-start; }
+        #test-selection-container { margin-bottom: 1.5em; }
         .test-option { display: block; margin-bottom: 0.5em; font-size: 1.1em; }
-        button { font-size: 1em; padding: 10px 20px; border-radius: 5px; border: none; background-color: #3498db; color: white; cursor: pointer; }
-        button:hover { background-color: #2980b9; }
+        .button-group { display: flex; gap: 10px; }
+        button { font-size: 1em; padding: 10px 20px; border-radius: 5px; border: none; color: white; cursor: pointer; }
+        #run-btn { background-color: #3498db; }
+        #run-btn:hover { background-color: #2980b9; }
+        #mutate-btn { background-color: #9b59b6; }
+        #mutate-btn:hover { background-color: #8e44ad; }
+        #mutation-status { margin-top: 1.5em; font-family: monospace; font-size: 1.1em; white-space: pre; }
         p { line-height: 1.6; }
     </style>
 </head>
@@ -24,63 +30,33 @@
             <div id="test-selection-container">
                 <!-- Checkboxes will be dynamically inserted here -->
             </div>
-            <button type="submit">Run Selected Tests</button>
+            <div class="button-group">
+                <button id="run-btn" type="submit">Run Selected Tests</button>
+                <button id="mutate-btn" type="button">Run Mutation Tests</button>
+            </div>
         </form>
+
+        <div id="mutation-status"></div>
     </div>
 
-        <!-- THIS IS THE NEW SANDBOX ELEMENT -->
+    <!-- This sandbox is where tests will safely manipulate the DOM -->
     <div id="test-sandbox"></div>
 
-    <div id="script-container"></div>
-
     <script>
+        // With ESM, we only need to know the entry point for each test suite.
+        // The browser will handle loading all nested dependencies.
         const AVAILABLE_TESTS = [
-            {
-                name: "TextGenerator",
-                testPath: "TextGenerator/TextGenerator.test.js",
-                componentPath: "../TextGenerator.js"
-            },
-            {
-                name: "InputHandler",
-                testPath: "InputHandler/InputHandler.test.js",
-                componentPath: "../InputHandler.js"
-            },
-            {
-                name: "PerformanceAnalyzer",
-                testPath: "PerformanceAnalyzer/PerformanceAnalyzer.test.js",
-                componentPath: "../PerformanceAnalyzer.js"
-            },
-            {
-                name: "TypingJournal",
-                testPath: "TypingJournal/TypingJournal.test.js",
-                componentPath: "../TypingJournal.js"
-            },
-            {
-                name: "Renderer",
-                testPath: "Renderer/Renderer.test.js",
-                componentPath: "../Renderer.js"
-            },
-            {
-                name: "TypingGame",
-                testPath: "TypingGame/TypingGame.test.js",
-                componentPath: [
-                    "../TextGenerator.js",
-                    "../TypingJournal.js",
-                    "../InputHandler.js",
-                    "../PerformanceAnalyzer.js",
-                    "../Renderer.js",
-                    "../TypingGame.js"
-                ]
-            }
+            { name: "TextGenerator", testPath: "./TextGenerator/TextGenerator.test.js" },
+            { name: "InputHandler", testPath: "./InputHandler/InputHandler.test.js" },
+            { name: "PerformanceAnalyzer", testPath: "./PerformanceAnalyzer/PerformanceAnalyzer.test.js" },
+            { name: "TypingJournal", testPath: "./TypingJournal/TypingJournal.test.js" },
+            { name: "Renderer", testPath: "./Renderer/Renderer.test.js" },
+            { name: "TypingGame", testPath: "./TypingGame/TypingGame.test.js" },
         ];
 
         const form = document.getElementById('test-form');
         const selectionContainer = document.getElementById('test-selection-container');
-        const scriptContainer = document.getElementById('script-container');
         
-        // --- NEW: Keep track of loaded scripts ---
-        const loadedScripts = new Set();
-
         function populateTestOptions() {
             AVAILABLE_TESTS.forEach(test => {
                 const label = document.createElement('label');
@@ -95,71 +71,79 @@
             });
         }
 
-        function loadScript(src) {
-            // --- NEW: Check if script has already been loaded ---
-            if (loadedScripts.has(src)) {
-                return Promise.resolve(); // Immediately resolve if already loaded
-            }
+        async function runUnitTests(testsToRun) {
+            console.clear();
+            console.log("--- UNIT TEST RUN STARTED ---");
 
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = () => {
-                    loadedScripts.add(src); // Mark as loaded on success
-                    resolve(script);
-                };
-                script.onerror = () => reject(new Error(`Script load error for ${src}`));
-                scriptContainer.appendChild(script);
-            });
-        }
+            try {
+                // Dynamically import the framework modules.
+                // The browser's module cache prevents re-execution.
+                await import('./framework/Assertions.js');
+                await import('./framework/Collector.js');
+                await import('./framework/Reporter.js');
+                const { Test } = await import('./test-framework.js');
 
-        async function runTestsFromUrl() {
-            const params = new URLSearchParams(window.location.search);
-            const testsToRun = params.getAll('tests');
-            if (testsToRun.length === 0) return;
-
-            document.querySelectorAll('input[name="tests"]').forEach(checkbox => {
-                if (testsToRun.includes(checkbox.value)) checkbox.checked = true;
-            });
-
-            scriptContainer.innerHTML = '';
-            loadedScripts.clear(); // Clear the set for a fresh run
-
-            await loadScript('framework/Assertions.js');
-            await loadScript('framework/Collector.js');
-            await loadScript('framework/Reporter.js');
-            await loadScript('test-framework.js');
-
-            for (const testName of testsToRun) {
-                const testConfig = AVAILABLE_TESTS.find(t => t.name === testName);
-                if (testConfig) {
-                    const pathsToLoad = Array.isArray(testConfig.componentPath)
-                        ? testConfig.componentPath
-                        : [testConfig.componentPath];
-
-                    for (const path of pathsToLoad) {
-                        await loadScript(path);
+                // Loop through and load each selected test module.
+                for (const testName of testsToRun) {
+                    const testConfig = AVAILABLE_TESTS.find(t => t.name === testName);
+                    if (testConfig) {
+                        await import(testConfig.testPath);
                     }
-
-                    await loadScript(testConfig.testPath);
                 }
-            }
 
-            Test.summarize();
+                Test.summarize();
+
+            } catch (error) {
+                console.error("A critical error occurred during the test run:", error);
+            }
         }
+        
+        async function runMutationTests(testsToRun) {
+            const statusDiv = document.getElementById('mutation-status');
+            statusDiv.textContent = "Mutation testing is not yet implemented.";
+            console.log("Mutation testing workflow would start here for:", testsToRun);
+            // This is the entry point for our future mutation testing logic.
+        }
+
+        function getSelectedTests() {
+             const formData = new FormData(form);
+             return formData.getAll('tests');
+        }
+
+        // --- Event Listeners ---
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
-            const formData = new FormData(form);
-            const selectedTests = formData.getAll('tests');
+            const selectedTests = getSelectedTests();
             const newUrl = new URL(window.location.pathname, window.location.origin);
             selectedTests.forEach(test => newUrl.searchParams.append('tests', test));
-            window.location.href = newUrl.href;
+            window.location.href = newUrl.href; // Reload the page with new params
+        });
+
+        document.getElementById('mutate-btn').addEventListener('click', async () => {
+            const selectedTests = getSelectedTests();
+            if (selectedTests.length > 0) {
+                 await runMutationTests(selectedTests);
+            } else {
+                alert("Please select at least one test suite to mutate.");
+            }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
             populateTestOptions();
-            runTestsFromUrl();
+            
+            // Check URL params to run tests on page load
+            const params = new URLSearchParams(window.location.search);
+            const testsToRunOnLoad = params.getAll('tests');
+
+            if (testsToRunOnLoad.length > 0) {
+                document.querySelectorAll('input[name="tests"]').forEach(checkbox => {
+                    if (testsToRunOnLoad.includes(checkbox.value)) {
+                        checkbox.checked = true;
+                    }
+                });
+                runUnitTests(testsToRunOnLoad);
+            }
         });
     </script>
 </body>

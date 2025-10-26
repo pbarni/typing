@@ -6,7 +6,7 @@
  * type of key pressed (e.g., correct, error, backspace) based on the current
  * state of the typing journal.
  */
-class InputHandler {
+export class InputHandler {
     /**
      * Analyzes a keyboard event against the current state of the typing journal
      * to produce a detailed event log object.

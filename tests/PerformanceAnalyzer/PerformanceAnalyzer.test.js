@@ -1,5 +1,8 @@
 // tests/PerformanceAnalyzer/PerformanceAnalyzer.test.js
 
+import { Test } from '../test-framework.js';
+import { PerformanceAnalyzer } from '../../PerformanceAnalyzer.js';
+
 Test.describe("PerformanceAnalyzer", () => {
 
     // ==================================================================

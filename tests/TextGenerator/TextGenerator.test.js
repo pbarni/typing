@@ -1,5 +1,8 @@
 // tests/TextGenerator/TextGenerator.test.js
 
+import { Test } from '../test-framework.js';
+import { TextGenerator } from '../../TextGenerator.js';
+
 Test.describe("TextGenerator.generate()", () => {
 
     // --- This test has unique logic (word counting), so it stays as a standard 'it' block. ---

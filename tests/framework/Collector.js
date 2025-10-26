@@ -1,6 +1,6 @@
 // tests/framework/Collector.js
 
-function createCollectorModule() {
+export function createCollectorModule() {
     let testTree = {};
     let suiteStack = [];
 
