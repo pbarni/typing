@@ -20,9 +20,20 @@
         <button id="reset-btn">Next</button>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- 
+      THE OLD SCRIPT TAGS HAVE BEEN REMOVED.
+      
+      <script src="TextGenerator.js"></script>
+      <script src="TypingJournal.js"></script>
+      <script src="InputHandler.js"></script>
+      <script src="PerformanceAnalyzer.js"></script>
+      <script src="Renderer.js"></script>
+      <script src="TypingGame.js"></script>
+    -->
 
-    <!-- The Main Entry Point -->
-    <script src="script.js"></script>
+    <!-- The Main Entry Point: Now declared as a module. -->
+    <!-- The browser will see this, load script.js, and then automatically -->
+    <!-- load all the dependencies imported by script.js and so on. -->
+    <script type="module" src="script.js"></script>
 </body>
 </html>
