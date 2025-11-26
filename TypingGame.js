@@ -4,46 +4,21 @@ import { TextGenerator } from './TextGenerator.js';
 import { TypingJournal } from './TypingJournal.js';
 import { PerformanceAnalyzer } from './PerformanceAnalyzer.js';
 import { Renderer } from './Renderer.js';
+// --- FIX 1: Import the InputHandler ---
+import { InputHandler } from './InputHandler.js'; 
 
 /**
- * The main controller class for the typing game. It orchestrates all other modules
- * to manage the game's state, handle user input, and render the UI. This class
- * acts as the central hub, connecting the data models (Journal), logic modules
- * (PerformanceAnalyzer, InputHandler), and the view layer (Renderer).
+ * The main controller class for the typing game.
  */
 export class TypingGame {
-    /**
-     * Creates a new TypingGame instance.
-     * @param {object} config - The application's configuration settings.
-     * @param {object} domElements - An object containing references to all necessary DOM elements.
-     */
     constructor(config, domElements) {
         this.config = config;
         this.dom = domElements;
-        
-        /**
-         * An instance of the Renderer class, responsible for all DOM manipulations.
-         * @type {Renderer}
-         */
         this.renderer = new Renderer(this.dom, this.config);
-        
-        /**
-         * An instance of the TypingJournal, which logs all user input and holds the source text.
-         * @type {TypingJournal|null}
-         */
         this.journal = null;
-
-        /**
-         * A flag indicating whether the typing test is currently active.
-         * @type {boolean}
-         */
         this.isGameActive = false;
         
-        /**
-         * An object holding the immediate state of the UI, primarily derived from the
-         * hidden textarea. This state is passed to the renderer.
-         * @type {{characters: Array, cursorPos: number, selectionEnd: number}}
-         */
+        // Initial UI state
         this.uiState = {
             characters: [],
             cursorPos: 0,
@@ -51,112 +26,126 @@ export class TypingGame {
         };
     }
 
-    /**
-     * Initializes the application. It binds all necessary event listeners and
-     * starts the first game. This should be the main entry point after instantiation.
-     */
     init() {
         this.bindEvents();
         this.startNewGame();
     }
 
-    /**
-     * Sets up all event listeners for the application, including user input,
-     * button clicks, and window resizing.
-     * @private
-     */
     bindEvents() {
         this.dom.resetButton.addEventListener('click', () => this.startNewGame());
         
-        // Listen to a wide range of events on the hidden textarea to ensure the UI
-        // is always in sync with its state.
         const eventsToSync = ['input', 'keydown', 'keyup', 'select', 'mousedown', 'mouseup'];
         eventsToSync.forEach(event => {
             this.dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.syncUI()));
         });
 
-        // Ensure the hidden textarea is always focused to capture typing.
         document.body.addEventListener('click', () => this.dom.textInput.focus());
         this.dom.textWrapper.addEventListener('click', (e) => this.onClick(e));
         window.addEventListener('resize', () => this.onResize());
     }
 
-    /**
-     * Resets the game to its initial state. It generates a new block of text,
-     * creates a new journal, clears the input, and performs the initial render.
-     */
     startNewGame() {
         this.isGameActive = true;
         const text = TextGenerator.generate(this.config.wordCount, this.config.wordsPerLine);
         this.journal = new TypingJournal(text);
         
-        this.dom.textInput.value = ''; // Clear the textarea
+        // Initialize state for diffing
+        this.lastText = ''; 
         
-        // Use requestAnimationFrame to ensure layout calculations happen after
-        // the browser has had a chance to paint the initial, unstyled text.
+        this.dom.textInput.value = ''; 
         requestAnimationFrame(() => {
             this.renderer.initializeLayout();
-            this.syncUI(); // Perform the initial render
+            this.syncUI();
         });
     }
 
-    /**
-     * The core update loop of the application. It reads the current state from the
-     * hidden textarea (value and selection), uses PerformanceAnalyzer to calculate
-     * character states and stats, and then tells the Renderer to update the DOM.
-     * It also checks for the game's end condition.
-     */
     syncUI() {
         if (!this.isGameActive) return;
 
-        // 1. Get live state from the hidden textarea (the "source of truth" for UI state).
+        // 1. Get Reality
         const typedText = this.dom.textInput.value;
         this.uiState.cursorPos = this.dom.textInput.selectionStart;
         this.uiState.selectionEnd = this.dom.textInput.selectionEnd;
 
-        // 2. Update character states based on the live text.
-        this.uiState.characters = PerformanceAnalyzer.generateCharacterState(this.journal.originalText, typedText);
+        // 2. Diff & Log
+        this.recordToJournal(typedText);
 
-        // 3. Recalculate stats based on the live text.
+        // 3. Logic (The new InputHandler)
+        const { charStates, isGameFinished } = InputHandler.compare(this.journal.originalText, typedText);
+        
+        // --- FIX 2: Bridge to the old Renderer ---
+        // Your current Renderer expects an object called 'uiState' with 'characters', 
+        // and a second argument for 'stats'. We construct those here.
+        this.uiState.characters = charStates; // Map the new 'charStates' to the expected 'characters' prop
+
+        // We still need to calculate stats for the display
         const stats = PerformanceAnalyzer.calculateLiveStats(this.journal.originalText, typedText);
         
-        // 4. Render everything.
-        this.renderer.render(this.uiState, stats);
+        // Render using the OLD signature: render(uiState, stats)
+        this.renderer.render(this.uiState, stats); 
+        // ----------------------------------------
 
-        // 5. Check for game end condition.
-        if (typedText === this.journal.originalText) {
+        // 4. End Game check
+        if (isGameFinished) {
             this.isGameActive = false;
+            console.log("Game Over. Journal:", this.journal.getLog());
         }
     }
 
-    /**
-     * Handles click events on the displayed text, allowing the user to reposition
-     * the cursor. It calculates the clicked character index and programmatically
-     * updates the hidden textarea's selection, which then triggers a `syncUI` update.
-     * @param {MouseEvent} event The DOM click event.
-     */
-    onClick(event) {
-        // Only respond to clicks on the character spans themselves.
-        if (event.target.tagName !== 'SPAN') return;
-
-        const spans = Array.from(this.dom.textDisplay.children);
-        const clickedIndex = spans.indexOf(event.target);
-        
-        // Programmatically set the textarea's cursor, which will trigger the 'select'
-        // event listener and call syncUI.
-        this.dom.textInput.selectionStart = clickedIndex;
-        this.dom.textInput.selectionEnd = clickedIndex;
-        
-        this.syncUI(); // Force an immediate update for responsiveness.
+    recordToJournal(currentText) {
+        const previousText = this.lastText;
+        if (currentText === previousText) return;
+    
+        const timestamp = Date.now();
+    
+        // 1. Detect Backspaces
+        if (currentText.length < previousText.length) {
+            const charsToDelete = previousText.length - currentText.length;
+            for (let i = 0; i < charsToDelete; i++) {
+                this.journal.addEvent({
+                    key: 'Backspace',
+                    type: 'backspace',
+                    timestamp: timestamp,
+                    cursorPos: previousText.length - i 
+                });
+            }
+        }
+    
+        // 2. Detect Additions
+        if (currentText.length > previousText.length) {
+            const addedText = currentText.substring(previousText.length);
+            addedText.split('').forEach((char, index) => {
+                const currentPos = previousText.length + index;
+                const expectedChar = this.journal.originalText[currentPos];
+                const isCorrect = char === expectedChar;
+                
+                this.journal.addEvent({
+                    key: char,
+                    type: isCorrect ? 'correct' : 'error',
+                    isCorrect: isCorrect,
+                    expectedChar: expectedChar,
+                    timestamp: timestamp,
+                    cursorPos: currentPos + 1
+                });
+            });
+        }
+    
+        // 3. Update state
+        this.lastText = currentText;
     }
 
-    /**
-     * Handles the window resize event. It re-initializes the renderer's layout
-     * calculations and triggers a re-render to ensure the scrolling and text
-     * wrapping are adjusted correctly.
-     */
+    onClick(event) {
+        if (event.target.tagName !== 'SPAN') return;
+        const spans = Array.from(this.dom.textDisplay.children);
+        const clickedIndex = spans.indexOf(event.target);
+        this.dom.textInput.selectionStart = clickedIndex;
+        this.dom.textInput.selectionEnd = clickedIndex;
+        this.syncUI();
+    }
+
     onResize() {
         this.renderer.initializeLayout();
+        // Ensure onResize also works with the existing PerformanceAnalyzer
         this.renderer.render(this.uiState, PerformanceAnalyzer.calculateLiveStats(this.journal.originalText, this.dom.textInput.value));
     }
 }
