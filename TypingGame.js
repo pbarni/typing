@@ -49,10 +49,14 @@ export class TypingGame {
         const text = TextGenerator.generate(this.config.wordCount, this.config.wordsPerLine);
         this.journal = new TypingJournal(text);
         
-        // Initialize state for diffing
         this.lastText = ''; 
         
+        // --- NEW: Generate the DOM nodes once ---
+        this.renderer.initializeText(this.journal.originalText);
+        // ---------------------------------------
+
         this.dom.textInput.value = ''; 
+        
         requestAnimationFrame(() => {
             this.renderer.initializeLayout();
             this.syncUI();
