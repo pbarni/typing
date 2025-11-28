@@ -2,14 +2,9 @@
 
 import { TextGenerator } from './TextGenerator.js';
 import { TypingJournal } from './TypingJournal.js';
-import { PerformanceAnalyzer } from './PerformanceAnalyzer.js';
 import { Renderer } from './Renderer.js';
-// --- FIX 1: Import the InputHandler ---
-import { InputHandler } from './InputHandler.js'; 
+import { GameLogic } from './GameLogic.js';
 
-/**
- * The main controller class for the typing game.
- */
 export class TypingGame {
     constructor(config, domElements) {
         this.config = config;
@@ -17,13 +12,7 @@ export class TypingGame {
         this.renderer = new Renderer(this.dom, this.config);
         this.journal = null;
         this.isGameActive = false;
-        
-        // Initial UI state
-        this.uiState = {
-            characters: [],
-            cursorPos: 0,
-            selectionEnd: 0
-        };
+        this.startTime = 0; // Needed for WPM
     }
 
     init() {
@@ -34,8 +23,8 @@ export class TypingGame {
     bindEvents() {
         this.dom.resetButton.addEventListener('click', () => this.startNewGame());
         
-        const eventsToSync = ['input', 'keydown', 'keyup', 'select', 'mousedown', 'mouseup'];
-        eventsToSync.forEach(event => {
+        // Listen to everything that changes the input
+        ['input', 'keydown', 'keyup', 'select', 'mouseup'].forEach(event => {
             this.dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.syncUI()));
         });
 
@@ -46,16 +35,20 @@ export class TypingGame {
 
     startNewGame() {
         this.isGameActive = true;
+        this.startTime = 0; // Reset timer
+        
+        // Setup Logic & Data
         const text = TextGenerator.generate(this.config.wordCount, this.config.wordsPerLine);
         this.journal = new TypingJournal(text);
         
+        // Reset Diffing State
         this.lastText = ''; 
-        
-        // --- NEW: Generate the DOM nodes once ---
-        this.renderer.initializeText(this.journal.originalText);
-        // ---------------------------------------
 
+        // Setup View
         this.dom.textInput.value = ''; 
+        
+        // Pre-build the DOM spans (Virtual DOM init)
+        this.renderer.initializeText(this.journal.originalText); 
         
         requestAnimationFrame(() => {
             this.renderer.initializeLayout();
@@ -66,43 +59,48 @@ export class TypingGame {
     syncUI() {
         if (!this.isGameActive) return;
 
-        // 1. Get Reality
         const typedText = this.dom.textInput.value;
-        this.uiState.cursorPos = this.dom.textInput.selectionStart;
-        this.uiState.selectionEnd = this.dom.textInput.selectionEnd;
+        
+        // Start timer on first keypress
+        if (this.startTime === 0 && typedText.length > 0) {
+            this.startTime = Date.now();
+        }
 
-        // 2. Diff & Log
+        // 1. Journaling: Reverse engineer the events
         this.recordToJournal(typedText);
 
-        // 3. Logic (The new InputHandler)
-        const { charStates, isGameFinished } = InputHandler.compare(this.journal.originalText, typedText);
+        // 2. Logic: Analyze state
+        const state = GameLogic.analyze(this.journal.originalText, typedText, this.startTime);
         
-        // --- FIX 2: Bridge to the old Renderer ---
-        // Your current Renderer expects an object called 'uiState' with 'characters', 
-        // and a second argument for 'stats'. We construct those here.
-        this.uiState.characters = charStates; // Map the new 'charStates' to the expected 'characters' prop
+        // 3. Render: Update UI
+        this.renderer.render({
+            characters: state.charStates,
+            // Use the DOM's native selection to tell Renderer where to paint
+            cursorPos: this.dom.textInput.selectionStart, 
+            selectionEnd: this.dom.textInput.selectionEnd
+        }, state.stats);
 
-        // We still need to calculate stats for the display
-        const stats = PerformanceAnalyzer.calculateLiveStats(this.journal.originalText, typedText);
-        
-        // Render using the OLD signature: render(uiState, stats)
-        this.renderer.render(this.uiState, stats); 
-        // ----------------------------------------
-
-        // 4. End Game check
-        if (isGameFinished) {
+        // 4. End Game
+        if (state.isGameFinished) {
             this.isGameActive = false;
-            console.log("Game Over. Journal:", this.journal.getLog());
+            console.log("Finished! Log:", this.journal.getLog());
         }
     }
 
+    /**
+     * Calculates the difference between the previous text state and the current
+     * text state, then logs the appropriate events to the Journal.
+     */
     recordToJournal(currentText) {
         const previousText = this.lastText;
+        
+        // If nothing changed, do nothing
         if (currentText === previousText) return;
-    
+
         const timestamp = Date.now();
-    
-        // 1. Detect Backspaces
+
+        // 1. Detect Backspaces (Shortening)
+        // If current text is shorter, we treat it as deletions from the end.
         if (currentText.length < previousText.length) {
             const charsToDelete = previousText.length - currentText.length;
             for (let i = 0; i < charsToDelete; i++) {
@@ -114,13 +112,21 @@ export class TypingGame {
                 });
             }
         }
-    
-        // 2. Detect Additions
+
+        // 2. Detect Additions (Typing)
+        // If current text is longer, we added characters.
         if (currentText.length > previousText.length) {
+            // We only care about the new part at the end
             const addedText = currentText.substring(previousText.length);
+            
+            // Loop through the added chunk (usually just 1 char, but could be paste)
             addedText.split('').forEach((char, index) => {
                 const currentPos = previousText.length + index;
                 const expectedChar = this.journal.originalText[currentPos];
+                
+                // Safety check: if typed past end of original text
+                if (!expectedChar) return; 
+
                 const isCorrect = char === expectedChar;
                 
                 this.journal.addEvent({
@@ -133,23 +139,26 @@ export class TypingGame {
                 });
             });
         }
-    
-        // 3. Update state
+
+        // 3. Update our state for the next frame
         this.lastText = currentText;
     }
-
+    
     onClick(event) {
         if (event.target.tagName !== 'SPAN') return;
         const spans = Array.from(this.dom.textDisplay.children);
         const clickedIndex = spans.indexOf(event.target);
+        
+        // Move native cursor
         this.dom.textInput.selectionStart = clickedIndex;
         this.dom.textInput.selectionEnd = clickedIndex;
+        
+        // Trigger update
         this.syncUI();
     }
 
     onResize() {
         this.renderer.initializeLayout();
-        // Ensure onResize also works with the existing PerformanceAnalyzer
-        this.renderer.render(this.uiState, PerformanceAnalyzer.calculateLiveStats(this.journal.originalText, this.dom.textInput.value));
+        this.syncUI();
     }
 }

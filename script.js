@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         wordsPerLine: 12,
     };
 
-    // 2. Select all necessary DOM elements (This is the corrected part)
+    // 2. Select all necessary DOM elements
     const domElements = {
         textWrapper: document.getElementById('text-wrapper'),
         textDisplay: document.getElementById('text-to-type'),

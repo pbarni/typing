@@ -66,13 +66,12 @@ export class Renderer {
         const start = Math.min(cursorPos, selectionEnd);
         const end = Math.max(cursorPos, selectionEnd);
 
-        // We loop through our CACHE, not the incoming data.
+        // We loop through our CACHE.
         // The cache size is always OriginalText + 1 (Ghost Span)
         for (let i = 0; i < this.spanCache.length; i++) {
             const span = this.spanCache[i];
             
-            // Get the state from the logic (InputHandler), or fallback to 'default'
-            // (The ghost span at the end won't have a matching character in 'characters')
+            // Get the state from logic, or fallback to 'default'
             const charData = characters[i];
             let newClass = charData ? charData.state : 'default';
 
@@ -120,11 +119,7 @@ export class Renderer {
         const activeSpan = this.spanCache[cursorPos] || this.spanCache[this.spanCache.length - 1];
         if (!activeSpan) return;
 
-        // Simple scroll logic: Just move the container to keep cursor in view.
-        // Note: This relies on the textDisplay having `position: relative` or `absolute` 
-        // and changing `top`, OR using `scrollTop`. 
-        // Let's stick to your existing "top" logic but simplify it:
-        
+        // Simple scroll logic
         const spanTop = activeSpan.offsetTop;
         const lineHeight = this.layout.lineHeight;
         
