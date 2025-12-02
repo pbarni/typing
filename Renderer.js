@@ -3,109 +3,88 @@
 export class Renderer {
     constructor(domElements, config) {
         this.dom = domElements;
-        this.config = config;
-        this.layout = { lineHeight: 0 };
+        this.config = config; // Needed for visibleLines
         this.spanCache = []; 
     }
 
-    /**
-     * ONE-TIME SETUP: Creates the span elements for the entire text.
-     */
     initializeText(originalText) {
         this.spanCache = [];
         const fragment = document.createDocumentFragment();
 
-        // 1. Create spans for all characters
         originalText.split('').forEach(char => {
             const span = document.createElement('span');
-            if (char === '\n') {
-                span.innerHTML = '↵';
-            } else {
-                span.innerText = char;
-            }
+            span.innerText = char;
             span.className = 'default'; 
-            
             this.spanCache.push(span);
             fragment.appendChild(span);
         });
 
-        // 2. Create a "Ghost" cursor span at the very end
         const cursorSpan = document.createElement('span');
         cursorSpan.innerHTML = '&nbsp;'; 
         cursorSpan.className = 'default';
         this.spanCache.push(cursorSpan);
         fragment.appendChild(cursorSpan);
 
-        // 3. Mount to DOM
         this.dom.textDisplay.innerHTML = '';
         this.dom.textDisplay.appendChild(fragment);
     }
 
     /**
-     * THE LOOP: Efficiently updates classes. 
-     * SIMPLIFIED: No selection logic anymore.
+     * Calculates the height of the container to match 'visibleLines'
      */
-    render(uiState, stats) {
-        this.renderStats(stats);
-        this.updateCharacterClasses(uiState);
-        requestAnimationFrame(() => this.renderScroll(uiState.cursorPos));
+    setWindowSize() {
+        // Measure one span to get the line height
+        if (this.spanCache.length === 0) return;
+        
+        const sampleSpan = this.spanCache[0];
+        // We use computed style to get the precise pixel value
+        const computedStyle = window.getComputedStyle(sampleSpan);
+        const lineHeight = parseFloat(computedStyle.lineHeight) || sampleSpan.offsetHeight;
+
+        // Calculate total height needed + padding
+        const wrapperStyle = window.getComputedStyle(this.dom.textWrapper);
+        const padding = parseFloat(wrapperStyle.paddingTop) + parseFloat(wrapperStyle.paddingBottom);
+        
+        const totalHeight = (lineHeight * this.config.visibleLines) + padding;
+
+        // Apply to the wrapper
+        this.dom.textWrapper.style.height = `${totalHeight}px`;
+        
+        // Ensure we hide the overflow so it looks like a "window"
+        // This allows scrollIntoView to work but hides the scrollbar
+        this.dom.textWrapper.style.overflow = 'hidden'; 
     }
 
-    renderStats(stats) {
+    render(uiState, stats) {
         this.dom.wpmDisplay.innerText = stats.wpm;
         this.dom.accuracyDisplay.innerText = stats.accuracy;
+        
+        this.updateCharacterClasses(uiState);
+        this.scrollCursorIntoView(uiState.cursorPos);
     }
 
     updateCharacterClasses({ characters, cursorPos }) {
-        // We loop through our CACHE.
         for (let i = 0; i < this.spanCache.length; i++) {
             const span = this.spanCache[i];
-            
             const charData = characters[i];
             let newClass = charData ? charData.state : 'default';
 
-            // --- Decoration Logic (Simplified) ---
-            
-            // 1. Cursor: Only show at the exact typing position
-            if (i === cursorPos) {
-                newClass += ' cursor';
-            }
-            
-            // 2. Incorrect Underline
-            if (charData && charData.state === 'incorrect') {
-                newClass += ' underline';
-            }
+            if (i === cursorPos) newClass += ' cursor';
+            if (charData && charData.state === 'incorrect') newClass += ' underline';
 
-            // --- The "Virtual DOM" Check ---
-            if (span.className !== newClass) {
-                span.className = newClass;
-            }
+            if (span.className !== newClass) span.className = newClass;
         }
     }
-
-    initializeLayout() {
-        const computedStyle = window.getComputedStyle(this.dom.textDisplay);
-        this.layout.lineHeight = parseFloat(computedStyle.lineHeight);
-        
-        const style = window.getComputedStyle(this.dom.textWrapper);
-        const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-        
-        this.dom.textWrapper.style.height = `${(this.layout.lineHeight * this.config.visibleLines) + padding}px`;
-    }
     
-    renderScroll(cursorPos) {
-        if (this.layout.lineHeight === 0 || this.spanCache.length === 0) return;
-
-        const activeSpan = this.spanCache[cursorPos] || this.spanCache[this.spanCache.length - 1];
+    scrollCursorIntoView(cursorPos) {
+        const activeSpan = this.spanCache[cursorPos];
         if (!activeSpan) return;
 
-        const spanTop = activeSpan.offsetTop;
-        const lineHeight = this.layout.lineHeight;
-        
-        const currentLine = Math.floor(spanTop / lineHeight);
-        const targetLine = Math.max(0, currentLine - this.config.scrollTargetLine);
-        const scrollAmount = targetLine * lineHeight;
-
-        this.dom.textDisplay.style.top = `-${scrollAmount}px`;
+        // 'block: center' ensures the active line is always in the middle 
+        // of our little window (e.g., line 2 of 3).
+        activeSpan.scrollIntoView({ 
+            block: 'center',
+            behavior: 'smooth' 
+        });
     }
 }
