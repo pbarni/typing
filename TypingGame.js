@@ -1,14 +1,13 @@
 // TypingGame.js
 
-import { TextGenerator } from './TextGenerator.js';
+import { generateText } from './TextGenerator.js';
+import { analyzeState } from './GameLogic.js';
 import { Renderer } from './Renderer.js';
-import { GameLogic } from './GameLogic.js';
 
 export class TypingGame {
     constructor(config, domElements) {
         this.config = config;
         this.dom = domElements;
-        // Pass config back to Renderer
         this.renderer = new Renderer(this.dom, this.config); 
         
         this.originalText = "";
@@ -24,6 +23,8 @@ export class TypingGame {
 
     bindEvents() {
         this.dom.resetButton.addEventListener('click', () => this.startNewGame());
+        
+        // Input Controls
         this.dom.textInput.addEventListener('keydown', (e) => this.handleKeydown(e));
         
         ['input', 'keyup'].forEach(event => {
@@ -51,25 +52,58 @@ export class TypingGame {
 
         const expectedChar = this.originalText[nextIndex];
 
+        // --- 1. ENTER KEY MAPPING ---
+        // If user types 'Enter' but we expect 'Space', map it!
+        // This makes soft-wrapped lines feel natural.
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Never allow actual newlines in the input
+
+            if (expectedChar === ' ') {
+                // Check TypeRacer Gate (Must be correct so far)
+                const isCorrectSoFar = this.originalText.startsWith(typedText);
+                if (isCorrectSoFar) {
+                    // Manually insert a space
+                    this.insertChar(' '); 
+                }
+            }
+            return;
+        }
+
+        // --- 2. TypeRacer Gate (Stop on Error) ---
+        // Only allows proceeding past a space if the current word is correct.
         if (expectedChar === ' ') {
             const isCorrectSoFar = this.originalText.startsWith(typedText);
             if (!isCorrectSoFar) event.preventDefault();
         }
     }
 
+    /**
+     * Helper to programmatically insert characters into the textarea
+     * This allows us to map Enter -> Space while keeping undo history clean-ish.
+     */
+    insertChar(char) {
+        const input = this.dom.textInput;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        
+        // Insert text at cursor
+        input.setRangeText(char, start, end, 'end');
+        
+        // Force sync immediately
+        this.syncUI();
+    }
+
     startNewGame() {
         this.isGameActive = true;
         this.startTime = 0; 
         
-        this.originalText = TextGenerator.generate(this.config.wordCount);
+        this.originalText = generateText(this.config.wordCount);
         this.log = []; 
-        
         this.lastText = ''; 
         this.dom.textInput.value = ''; 
         
         this.renderer.initializeText(this.originalText); 
         
-        // Wait for render, then calculate the "Little Window" size
         requestAnimationFrame(() => {
             this.renderer.setWindowSize(); 
             this.syncUI();
@@ -79,6 +113,7 @@ export class TypingGame {
     syncUI() {
         if (!this.isGameActive) return;
 
+        // Force Cursor Lock
         const currentLength = this.dom.textInput.value.length;
         if (this.dom.textInput.selectionStart !== currentLength) {
             this.dom.textInput.selectionStart = currentLength;
@@ -93,7 +128,7 @@ export class TypingGame {
 
         this.recordToLog(typedText);
 
-        const state = GameLogic.analyze(this.originalText, typedText, this.startTime);
+        const state = analyzeState(this.originalText, typedText, this.startTime);
         
         this.renderer.render({
             characters: state.charStates,

@@ -1,8 +1,10 @@
+/* style.css */
+
 /* --- Basic Page Setup --- */
 body {
     background-color: #2c3e50;
     color: #ecf0f1;
-    font-family: 'Roboto Mono', monospace; /* Updated Font */
+    font-family: 'Roboto Mono', monospace;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -46,6 +48,7 @@ body {
 .text-input {
     position: absolute;
     left: -9999px;
+    opacity: 0; 
 }
 
 #reset-btn {
@@ -63,44 +66,30 @@ body {
     background-color: #2980b9;
 }
 
-
-/* =================================================================== */
-/* FINAL, PERFECTED STYLING ENGINE                                     */
-/* =================================================================== */
-
-/* --- 1. The Core Layout Fix --- */
+/* --- Block Layout --- */
 .text-display {
-    display: flex;
-    flex-wrap: wrap;
+    display: block; 
     position: relative;
     top: 0;
     transition: top 0.2s ease-out;
     font-size: 1.5rem;
-    line-height: 2;
+    line-height: 2; 
+    
+    /* This ensures spaces at the end of lines are preserved (so the cursor has a place to sit) */
+    white-space: pre-wrap; 
+    /* Ensures words break naturally */
+    word-wrap: break-word;
 }
 
-/* --- 2. Span Styling --- */
+/* Span Styles */
 .text-display span {
-    position: relative; /* Anchor for the underline's pseudo-element */
-    white-space: pre-wrap; /* Ensures spaces render correctly */
+    position: relative;
 }
 .text-display .default { color: #7f8c8d; }
 .text-display .correct { color: #2ecc71; }
 .text-display .incorrect { color: #e74c3c; }
 
-/* --- 3. Tuned Selection, Underline, and Cursor Styles --- */
-
-/* A shorter, tighter selection highlight */
-.selected {
-    color: #2c3e50;
-    background-image: linear-gradient(
-        transparent 20%, #3498db 20%, 
-        #3498db 80%, transparent 80%
-    );
-    background-repeat: no-repeat;
-}
-
-/* A perfectly positioned underline using a pseudo-element */
+/* Decorations */
 .underline::after {
     content: '';
     position: absolute;
@@ -108,19 +97,19 @@ body {
     height: 3px;
     background-color: #e74c3c;
     left: 0;
-    bottom: 10px; /* Your chosen perfect distance */
+    bottom: 2px;
 }
 
-/* The block cursor: Same shape as selection, different color */
+/* Reverted Cursor: Simple background color */
 .cursor {
-    background-image: linear-gradient(
-        transparent 20%, #52667a 20%, 
-        #52667a 80%, transparent 80%
-    );
-    background-repeat: no-repeat;
+    background-color: #52667a;
+    color: #ecf0f1;
     border-radius: 3px;
+    animation: blink 1s infinite;
+    /* No inline-block or min-width needed thanks to pre-wrap */
 }
 
-/* Rounded corners for the start/end of a selection */
-.selection-start { border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
-.selection-end { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}

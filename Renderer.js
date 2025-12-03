@@ -3,7 +3,7 @@
 export class Renderer {
     constructor(domElements, config) {
         this.dom = domElements;
-        this.config = config; // Needed for visibleLines
+        this.config = config; 
         this.spanCache = []; 
     }
 
@@ -11,6 +11,9 @@ export class Renderer {
         this.spanCache = [];
         const fragment = document.createDocumentFragment();
 
+        // SIMPLIFIED: Just create linear spans. 
+        // The browser's native text engine handles word wrapping perfectly 
+        // now that we are using 'display: block' in CSS.
         originalText.split('').forEach(char => {
             const span = document.createElement('span');
             span.innerText = char;
@@ -19,6 +22,7 @@ export class Renderer {
             fragment.appendChild(span);
         });
 
+        // Ghost cursor
         const cursorSpan = document.createElement('span');
         cursorSpan.innerHTML = '&nbsp;'; 
         cursorSpan.className = 'default';
@@ -29,29 +33,19 @@ export class Renderer {
         this.dom.textDisplay.appendChild(fragment);
     }
 
-    /**
-     * Calculates the height of the container to match 'visibleLines'
-     */
     setWindowSize() {
-        // Measure one span to get the line height
         if (this.spanCache.length === 0) return;
         
         const sampleSpan = this.spanCache[0];
-        // We use computed style to get the precise pixel value
         const computedStyle = window.getComputedStyle(sampleSpan);
         const lineHeight = parseFloat(computedStyle.lineHeight) || sampleSpan.offsetHeight;
 
-        // Calculate total height needed + padding
         const wrapperStyle = window.getComputedStyle(this.dom.textWrapper);
         const padding = parseFloat(wrapperStyle.paddingTop) + parseFloat(wrapperStyle.paddingBottom);
         
         const totalHeight = (lineHeight * this.config.visibleLines) + padding;
 
-        // Apply to the wrapper
         this.dom.textWrapper.style.height = `${totalHeight}px`;
-        
-        // Ensure we hide the overflow so it looks like a "window"
-        // This allows scrollIntoView to work but hides the scrollbar
         this.dom.textWrapper.style.overflow = 'hidden'; 
     }
 
@@ -80,8 +74,6 @@ export class Renderer {
         const activeSpan = this.spanCache[cursorPos];
         if (!activeSpan) return;
 
-        // 'block: center' ensures the active line is always in the middle 
-        // of our little window (e.g., line 2 of 3).
         activeSpan.scrollIntoView({ 
             block: 'center',
             behavior: 'smooth' 
