@@ -17,16 +17,16 @@ export class TypingGame {
         this.startTime = 0; 
 
         // --- EXPOSE FOR DEBUGGING ---
-        // This allows you to type 'game' in the console to see this instance
         window.game = this;
-        // This allows you to type 'Debug.printLog()' in the console
         window.Debug = ErrorLogger;
     }
 
     init() {
         this.bindEvents();
         this.startNewGame();
-        console.log("Game initialized. Type 'Debug.printLog()' to inspect memory.");
+        
+        // Print the debug banner on startup
+        ErrorLogger.printHelp();
     }
 
     bindEvents() {
@@ -61,19 +61,14 @@ export class TypingGame {
         const expectedChar = this.originalText[nextIndex];
 
         // --- 1. ENTER KEY MAPPING ---
-        // If user types 'Enter' but we expect 'Space', map it!
-        // This makes soft-wrapped lines feel natural.
         if (event.key === 'Enter') {
-            event.preventDefault(); // Never allow actual newlines in the input
+            event.preventDefault(); 
 
             if (expectedChar === ' ') {
-                // Check TypeRacer Gate (Must be correct so far)
                 const isCorrectSoFar = this.originalText.startsWith(typedText);
                 if (isCorrectSoFar) {
-                    // Manually insert a space
                     this.insertChar(' '); 
                 } else {
-                    // Log error if Enter was pressed but text was wrong
                     ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
                 }
             }
@@ -81,30 +76,21 @@ export class TypingGame {
         }
 
         // --- 2. TypeRacer Gate (Stop on Error) ---
-        // Only allows proceeding past a space if the current word is correct.
         if (expectedChar === ' ') {
             const isCorrectSoFar = this.originalText.startsWith(typedText);
             if (!isCorrectSoFar) {
-                // Trigger the Error Framework
                 ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
                 event.preventDefault();
             }
         }
     }
 
-    /**
-     * Helper to programmatically insert characters into the textarea
-     * This allows us to map Enter -> Space while keeping undo history clean-ish.
-     */
     insertChar(char) {
         const input = this.dom.textInput;
         const start = input.selectionStart;
         const end = input.selectionEnd;
         
-        // Insert text at cursor
         input.setRangeText(char, start, end, 'end');
-        
-        // Force sync immediately
         this.syncUI();
     }
 
@@ -128,7 +114,6 @@ export class TypingGame {
     syncUI() {
         if (!this.isGameActive) return;
 
-        // Force Cursor Lock
         const currentLength = this.dom.textInput.value.length;
         if (this.dom.textInput.selectionStart !== currentLength) {
             this.dom.textInput.selectionStart = currentLength;
