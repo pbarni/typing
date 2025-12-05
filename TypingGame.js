@@ -3,6 +3,7 @@
 import { generateText } from './TextGenerator.js';
 import { analyzeState } from './GameLogic.js';
 import { Renderer } from './Renderer.js';
+import { ErrorLogger } from './ErrorLogger.js';
 
 export class TypingGame {
     constructor(config, domElements) {
@@ -14,11 +15,18 @@ export class TypingGame {
         this.log = []; 
         this.isGameActive = false;
         this.startTime = 0; 
+
+        // --- EXPOSE FOR DEBUGGING ---
+        // This allows you to type 'game' in the console to see this instance
+        window.game = this;
+        // This allows you to type 'Debug.printLog()' in the console
+        window.Debug = ErrorLogger;
     }
 
     init() {
         this.bindEvents();
         this.startNewGame();
+        console.log("Game initialized. Type 'Debug.printLog()' to inspect memory.");
     }
 
     bindEvents() {
@@ -64,6 +72,9 @@ export class TypingGame {
                 if (isCorrectSoFar) {
                     // Manually insert a space
                     this.insertChar(' '); 
+                } else {
+                    // Log error if Enter was pressed but text was wrong
+                    ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
                 }
             }
             return;
@@ -73,7 +84,11 @@ export class TypingGame {
         // Only allows proceeding past a space if the current word is correct.
         if (expectedChar === ' ') {
             const isCorrectSoFar = this.originalText.startsWith(typedText);
-            if (!isCorrectSoFar) event.preventDefault();
+            if (!isCorrectSoFar) {
+                // Trigger the Error Framework
+                ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
+                event.preventDefault();
+            }
         }
     }
 
@@ -137,7 +152,7 @@ export class TypingGame {
 
         if (state.isGameFinished) {
             this.isGameActive = false;
-            console.log("Finished! Log:", this.log);
+            console.log("Finished! Final Log:", this.log);
         }
     }
 
@@ -155,7 +170,8 @@ export class TypingGame {
                     action: 'delete',
                     char: 'Backspace', 
                     expected: null,
-                    index: previousText.length - 1 - i
+                    index: previousText.length - 1 - i,
+                    isError: false
                 });
             }
         }
