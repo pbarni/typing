@@ -4,8 +4,9 @@ export class ErrorLogger {
     
     static _getLogSource(providedLog) {
         if (providedLog) return providedLog;
+        // Accessing the public getter 'historyLog' from the engine
         if (window.engine && window.engine.historyLog) return window.engine.historyLog;
-        console.warn("ErrorLogger: Could not find engine history.");
+        console.warn("ErrorLogger: Could not find engine history. Make sure window.engine is set.");
         return [];
     }
 
@@ -24,34 +25,29 @@ export class ErrorLogger {
     static help() { this.printHelp(); }
 
     /**
-     * Updated to handle specific blockage reasons.
+     * Logs why input was blocked based on the policy reason.
      * @param {string} typedText - Current input
      * @param {string} originalText - Target text
      * @param {string} attemptedKey - The key that triggered the block
+     * @param {string} reason - 'strict-space' or 'typeracer-gate'
      */
-    static logGateBlock(typedText, originalText, attemptedKey = null) {
-        const nextIndex = typedText.length;
-        const expectedChar = originalText[nextIndex];
-        
+    static logGateBlock(typedText, originalText, attemptedKey, reason) {
         console.log("%c⛔ INPUT BLOCKED", "color: red; font-weight: bold; font-size: 12px;");
         
-        // Logic to determine WHY it was blocked
-        const isSpaceBoundary = expectedChar === ' ';
-        const isCleanSoFar = originalText.startsWith(typedText);
-
         console.groupCollapsed("Reason & Details");
-
-        if (isSpaceBoundary && attemptedKey !== ' ' && attemptedKey !== 'Enter') {
+        
+        if (reason === 'strict-space') {
              console.error("Constraint: Strict Word Boundary");
-             console.error(`Reason: You tried to type '${attemptedKey}' but a SPACE is required here.`);
-        } else if (!isCleanSoFar) {
+             console.error(`Reason: You typed '${attemptedKey}' but a SPACE is required here.`);
+        } else if (reason === 'typeracer-gate') {
              console.error("Constraint: TypeRacer Gate (Typos Present)");
              console.error("Reason: You cannot advance to the next word until previous errors are fixed.");
         } else {
-             console.error("Constraint: Unknown Gate Block");
+             console.error("Constraint: Unknown Block");
+             console.error(`Reason: Engine blocked input '${attemptedKey}' with reason code: ${reason}`);
         }
 
-        // Find mismatch
+        // Find first mismatch using iterators
         let errorIndex = -1;
         const typedArr = [...typedText];
         const originalArr = [...originalText];
@@ -67,9 +63,8 @@ export class ErrorLogger {
             console.warn(`First Error at Index: ${errorIndex}`);
             console.warn(`Expected: "${originalArr[errorIndex]}" | Found: "${typedArr[errorIndex]}"`);
         } else {
-            console.info("Text is currently clean (Block caused by next strict character).");
+             console.info("Text is clean so far (Blockage caused by next strict character).");
         }
-
         console.groupEnd();
     }
 
