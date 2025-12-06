@@ -4,6 +4,7 @@ import { generateText } from './TextGenerator.js';
 import { analyzeState } from './GameLogic.js';
 import { Renderer } from './Renderer.js';
 import { ErrorLogger } from './ErrorLogger.js';
+import * as Rules from './InputRules.js'; // Import our new rules
 
 export class TypingGame {
     constructor(config, domElements) {
@@ -16,7 +17,7 @@ export class TypingGame {
         this.isGameActive = false;
         this.startTime = 0; 
 
-        // --- EXPOSE FOR DEBUGGING ---
+        // Debugging Access
         window.game = this;
         window.Debug = ErrorLogger;
     }
@@ -24,8 +25,6 @@ export class TypingGame {
     init() {
         this.bindEvents();
         this.startNewGame();
-        
-        // Print the debug banner on startup
         ErrorLogger.printHelp();
     }
 
@@ -35,6 +34,7 @@ export class TypingGame {
         // Input Controls
         this.dom.textInput.addEventListener('keydown', (e) => this.handleKeydown(e));
         
+        // UI Sync (Handles Visuals)
         ['input', 'keyup'].forEach(event => {
             this.dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.syncUI()));
         });
@@ -45,72 +45,50 @@ export class TypingGame {
     handleKeydown(event) {
         if (!this.isGameActive) return;
 
-        // 1. Block Navigation Keys that move the cursor
-        const forbiddenKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Delete'];
-        if (forbiddenKeys.includes(event.key)) {
-            event.preventDefault();
-            return;
-        }
-
-        // 2. Allow Browser Function Keys (F5, F11, F12, etc.)
-        // This regex ensures we match "F1"..."F12" but NOT just the letter "F"
-        if (/^F\d+$/.test(event.key)) {
-            return;
-        }
-
-        // 3. Allow Modifiers and Backspace
-        // This ensures commands like Ctrl+R or Ctrl+Shift+I still work
-        if (event.key === 'Backspace' || event.ctrlKey || event.metaKey || event.altKey) return;
-
-        const typedText = this.dom.textInput.value;
-        const nextIndex = typedText.length;
-        
-        if (nextIndex >= this.originalText.length) return;
-
-        const expectedChar = this.originalText[nextIndex];
-
-        // --- 4. ENTER KEY MAPPING ---
-        if (event.key === 'Enter') {
-            event.preventDefault(); 
-
-            if (expectedChar === ' ') {
-                const isCorrectSoFar = this.originalText.startsWith(typedText);
-                if (isCorrectSoFar) {
-                    this.insertChar(' '); 
-                } else {
-                    ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
-                }
-            }
-            return;
-        }
-
-        // --- 5. TypeRacer Gate (Stop on Error) ---
-        if (expectedChar === ' ') {
-            const isCorrectSoFar = this.originalText.startsWith(typedText);
-            if (!isCorrectSoFar) {
-                ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
-                
-                // This prevents the space, but strictly calling preventDefault 
-                // on everything else is what broke F12.
-                // Now that F-keys are handled above, this is safe.
+        // 1. Filter "System" keys (F12, Ctrl+C, etc)
+        // If we should ignore it, we return immediately and let the browser handle it.
+        // Note: We might want to preventDefault on Navigation keys specifically, 
+        // but for now returning lets the text input behave normally (or do nothing).
+        if (Rules.shouldIgnoreInput(event)) {
+            // Special case: We usually want to block Cursor movement in the textarea
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
                 event.preventDefault();
             }
+            return;
+        }
+
+        // Allow Backspace to always pass through
+        if (event.key === 'Backspace') return;
+
+        // 2. Prepare Context
+        const typedText = this.dom.textInput.value;
+        const expectedChar = this.originalText[typedText.length];
+
+        // 3. Check "Gate" Rule (Block progress on errors)
+        if (Rules.isGateBlocking(event.key, typedText, this.originalText)) {
+            ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
+            event.preventDefault(); // Stop the character from being typed
+            return;
+        }
+
+        // 4. Check "Enter -> Space" Mapping Rule
+        if (Rules.isEnterToSpaceMapping(event.key, expectedChar)) {
+            event.preventDefault(); // Don't add a newline
+            this.insertChar(' ');   // Add a space instead
+            return;
         }
     }
 
     insertChar(char) {
         const input = this.dom.textInput;
-        const start = input.selectionStart;
-        const end = input.selectionEnd;
-        
-        input.setRangeText(char, start, end, 'end');
+        // setRangeText is the modern, clean way to insert text at cursor
+        input.setRangeText(char, input.selectionStart, input.selectionEnd, 'end');
         this.syncUI();
     }
 
     startNewGame() {
         this.isGameActive = true;
         this.startTime = 0; 
-        
         this.originalText = generateText(this.config.wordCount);
         this.log = []; 
         this.lastText = ''; 
@@ -127,6 +105,7 @@ export class TypingGame {
     syncUI() {
         if (!this.isGameActive) return;
 
+        // Lock Cursor to end of text
         const currentLength = this.dom.textInput.value.length;
         if (this.dom.textInput.selectionStart !== currentLength) {
             this.dom.textInput.selectionStart = currentLength;
@@ -135,12 +114,14 @@ export class TypingGame {
 
         const typedText = this.dom.textInput.value;
         
+        // Start timer on first char
         if (this.startTime === 0 && typedText.length > 0) {
             this.startTime = Date.now();
         }
 
         this.recordToLog(typedText);
 
+        // Analyze and Render
         const state = analyzeState(this.originalText, typedText, this.startTime);
         
         this.renderer.render({
@@ -155,6 +136,7 @@ export class TypingGame {
     }
 
     recordToLog(currentText) {
+        // ... (Log logic remains the same, it is specific to the Game instance) ...
         const previousText = this.lastText;
         if (currentText === previousText) return;
 
