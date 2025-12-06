@@ -2,14 +2,11 @@
 
 export class ErrorLogger {
     
-    /**
-     * Tries to retrieve the log from the global engine instance if not provided.
-     */
     static _getLogSource(providedLog) {
         if (providedLog) return providedLog;
-        // Look for 'engine' now, not 'game'
+        // Accessing the public getter 'historyLog' from the engine
         if (window.engine && window.engine.historyLog) return window.engine.historyLog;
-        console.warn("ErrorLogger: Could not find engine history. Make sure window.engine is set.");
+        console.warn("ErrorLogger: Could not find engine history.");
         return [];
     }
 
@@ -21,8 +18,6 @@ export class ErrorLogger {
         console.log("%cDebug.printErrors()", "color: #e74c3c; font-family: monospace", "- View errors only.");
         console.log("%cDebug.printStats()", "color: #27ae60; font-family: monospace", " - View calculated stats.");
         console.log("%cDebug.getReport()", "color: #f1c40f; font-family: monospace", "  - Get copy-paste summary.");
-        console.log("%cDebug.getRaw()", "color: #9b59b6; font-family: monospace", "     - Get raw array.");
-        console.log("---------------------------------------");
         console.log("Global instance: %cwindow.engine", "font-family: monospace; font-weight: bold");
         console.groupEnd();
     }
@@ -30,13 +25,18 @@ export class ErrorLogger {
     static help() { this.printHelp(); }
 
     static logGateBlock(typedText, originalText) {
+        const log = this._getLogSource();
         console.log("%c⛔ INPUT BLOCKED: Fix your typos before proceeding.", "color: red; font-weight: bold");
         console.groupCollapsed("Details");
         console.error("Policy: TypeRacer Gate Active");
 
+        // Find first mismatch using iterators
         let errorIndex = -1;
-        for (let i = 0; i < typedText.length; i++) {
-            if (typedText[i] !== originalText[i]) {
+        const typedArr = [...typedText];
+        const originalArr = [...originalText];
+
+        for (let i = 0; i < typedArr.length; i++) {
+            if (typedArr[i] !== originalArr[i]) {
                 errorIndex = i;
                 break;
             }
@@ -44,7 +44,7 @@ export class ErrorLogger {
 
         if (errorIndex !== -1) {
             console.warn(`First Error at Index: ${errorIndex}`);
-            console.warn(`Expected: "${originalText[errorIndex]}" | Found: "${typedText[errorIndex]}"`);
+            console.warn(`Expected: "${originalArr[errorIndex]}" | Found: "${typedArr[errorIndex]}"`);
         }
         console.groupEnd();
     }

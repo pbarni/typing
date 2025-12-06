@@ -7,148 +7,148 @@ import { ErrorLogger } from './ErrorLogger.js';
 import * as Policy from './InputPolicy.js';
 
 export class TypingEngine {
-    constructor(config, domElements) {
-        this.config = config;
-        this.dom = domElements;
-        this.renderer = new Renderer(this.dom, this.config); 
-        
-        // Game State
-        this.originalText = "";
-        this.historyLog = []; // Renamed from 'log' to 'historyLog' for clarity
-        this.isRunning = false;
-        this.startTime = 0; 
+    // Private Fields (EcmaScript 2022)
+    #config;
+    #dom;
+    #renderer;
+    
+    #originalText = "";
+    #historyLog = [];
+    #isRunning = false;
+    #startTime = 0;
+    #lastTextState = "";
 
-        // Expose to Global Scope for ErrorLogger
+    constructor(config, domElements) {
+        this.#config = config;
+        this.#dom = domElements;
+        this.#renderer = new Renderer(this.#dom, this.#config); 
+        
+        // Expose instance safely to window for Debugger
         window.engine = this;
         window.Debug = ErrorLogger;
     }
 
+    // Getter for the debugger to access private history
+    get historyLog() {
+        return this.#historyLog;
+    }
+
     init() {
-        this.bindEvents();
+        this.#bindEvents();
         this.startSession();
         ErrorLogger.printHelp();
     }
 
-    bindEvents() {
-        this.dom.resetButton.addEventListener('click', () => this.startSession());
+    #bindEvents() {
+        this.#dom.resetButton.addEventListener('click', () => this.startSession());
+        this.#dom.textInput.addEventListener('keydown', (e) => this.#handleInputIntent(e));
         
-        // Keydown: Handles Permissions & Blocking (The Policy Layer)
-        this.dom.textInput.addEventListener('keydown', (e) => this.handleInputIntent(e));
-        
-        // Input/Keyup: Handles Visual Updates (The View Layer)
         ['input', 'keyup'].forEach(event => {
-            this.dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.updateLoop()));
+            this.#dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.#updateLoop()));
         });
 
-        // Focus trap
-        document.body.addEventListener('click', () => this.dom.textInput.focus());
+        document.body.addEventListener('click', () => this.#dom.textInput.focus());
     }
 
-    /**
-     * Decides if an input is allowed based on Policy.
-     */
-    handleInputIntent(event) {
-        if (!this.isRunning) return;
+    #handleInputIntent(event) {
+        if (!this.#isRunning) return;
 
-        // 1. Check System Filters (F12, Nav keys, etc.)
         if (Policy.shouldIgnoreInput(event)) {
-            // Explicitly block navigation keys to keep cursor at end
+            // Block navigation keys to keep cursor at end
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
                 event.preventDefault();
             }
             return;
         }
 
-        // Backspace is always allowed
         if (event.key === 'Backspace') return;
 
-        const typedText = this.dom.textInput.value;
-        const expectedChar = this.originalText[typedText.length];
+        const typedText = this.#dom.textInput.value;
+        const expectedChar = this.#originalText[typedText.length];
 
-        // 2. Check "Gate" Policy (Block on errors)
-        if (Policy.isGateBlocking(event.key, typedText, this.originalText)) {
-            ErrorLogger.logGateBlock(typedText, this.originalText, this.historyLog);
+        // Policy Checks
+        if (Policy.isGateBlocking(event.key, typedText, this.#originalText)) {
+            ErrorLogger.logGateBlock(typedText, this.#originalText);
             event.preventDefault(); 
             return;
         }
 
-        // 3. Check "Enter -> Space" Mapping Policy
         if (Policy.isEnterToSpaceMapping(event.key, expectedChar)) {
             event.preventDefault(); 
-            this.insertVirtualChar(' ');   
+            this.#insertVirtualChar(' ');   
             return;
         }
     }
 
-    insertVirtualChar(char) {
-        const input = this.dom.textInput;
+    #insertVirtualChar(char) {
+        const input = this.#dom.textInput;
         input.setRangeText(char, input.selectionStart, input.selectionEnd, 'end');
-        this.updateLoop();
+        this.#updateLoop();
     }
 
     startSession() {
-        this.isRunning = true;
-        this.startTime = 0; 
+        this.#isRunning = true;
+        this.#startTime = 0; 
+        this.#historyLog = []; 
+        this.#lastTextState = ''; 
         
-        this.originalText = generateText(this.config.wordCount);
-        this.historyLog = []; 
-        this.lastTextState = ''; 
-        this.dom.textInput.value = ''; 
+        this.#originalText = generateText(this.#config.wordCount);
+        this.#dom.textInput.value = ''; 
         
-        this.renderer.initializeText(this.originalText); 
+        this.#renderer.initializeText(this.#originalText); 
         
         requestAnimationFrame(() => {
-            this.renderer.setWindowSize(); 
-            this.updateLoop();
+            this.#renderer.setWindowSize(); 
+            this.#updateLoop();
         });
     }
 
-    updateLoop() {
-        if (!this.isRunning) return;
+    #updateLoop() {
+        if (!this.#isRunning) return;
 
-        // Enforce Cursor Lock (UI Hack)
-        const currentLength = this.dom.textInput.value.length;
-        if (this.dom.textInput.selectionStart !== currentLength) {
-            this.dom.textInput.selectionStart = currentLength;
-            this.dom.textInput.selectionEnd = currentLength;
+        // UI Hack: Force Cursor Lock
+        const currentLength = this.#dom.textInput.value.length;
+        if (this.#dom.textInput.selectionStart !== currentLength) {
+            this.#dom.textInput.selectionStart = currentLength;
+            this.#dom.textInput.selectionEnd = currentLength;
         }
 
-        const typedText = this.dom.textInput.value;
+        const typedText = this.#dom.textInput.value;
         
-        // Start Timer
-        if (this.startTime === 0 && typedText.length > 0) {
-            this.startTime = Date.now();
+        // Start High-Res Timer
+        if (this.#startTime === 0 && typedText.length > 0) {
+            this.#startTime = performance.now();
         }
 
-        this.recordHistory(typedText);
+        this.#recordHistory(typedText);
 
-        // Analyze State
-        const state = computeGameState(this.originalText, typedText, this.startTime);
+        // Analyze
+        const state = computeGameState(this.#originalText, typedText, this.#startTime);
         
         // Render
-        this.renderer.render({
+        this.#renderer.render({
             characters: state.charStates,
             cursorPos: currentLength
         }, state.stats);
 
-        // End Game Check
         if (state.isFinished) {
-            this.isRunning = false;
-            console.log("Session Complete. History:", this.historyLog);
+            this.#isRunning = false;
+            console.log("Session Complete. History:", this.#historyLog);
         }
     }
 
-    recordHistory(currentText) {
-        const previousText = this.lastTextState;
+    #recordHistory(currentText) {
+        const previousText = this.#lastTextState;
         if (currentText === previousText) return;
 
         const timestamp = performance.now();
 
-        // Handle Deletions
+        // 1. Detect Deletions
         if (currentText.length < previousText.length) {
             const count = previousText.length - currentText.length;
-            for (let i = 0; i < count; i++) {
-                this.historyLog.push({
+            // Use Array.from to create an iterator for cleaner loops
+            Array.from({ length: count }).forEach((_, i) => {
+                this.#historyLog.push({
                     ts: timestamp,
                     action: 'delete',
                     char: 'Backspace', 
@@ -156,20 +156,20 @@ export class TypingEngine {
                     index: previousText.length - 1 - i,
                     isError: false
                 });
-            }
+            });
         }
 
-        // Handle Insertions
+        // 2. Detect Insertions
         if (currentText.length > previousText.length) {
             const addedText = currentText.substring(previousText.length);
-            addedText.split('').forEach((char, i) => {
+            
+            [...addedText].forEach((char, i) => {
                 const currentPos = previousText.length + i;
-                const expectedChar = this.originalText[currentPos];
+                const expectedChar = this.#originalText[currentPos];
                 
-                // End of text guard
                 if (!expectedChar) return; 
 
-                this.historyLog.push({
+                this.#historyLog.push({
                     ts: timestamp,
                     action: 'insert',
                     char: char,
@@ -180,6 +180,6 @@ export class TypingEngine {
             });
         }
         
-        this.lastTextState = currentText;
+        this.#lastTextState = currentText;
     }
 }

@@ -1,86 +1,84 @@
 // Renderer.js
 
 export class Renderer {
+    // Private field to protect DOM state
+    #spanCache = [];
+    #dom;
+    #config;
+
     constructor(domElements, config) {
-        this.dom = domElements;
-        this.config = config; 
-        this.spanCache = []; 
+        this.#dom = domElements;
+        this.#config = config; 
     }
 
-    /**
-     * Creates the initial span elements for the text.
-     */
     initializeText(originalText) {
-        this.spanCache = [];
+        this.#spanCache = [];
         const fragment = document.createDocumentFragment();
 
-        originalText.split('').forEach(char => {
+        // Spread syntax for iterator-safe splitting
+        [...originalText].forEach(char => {
             const span = document.createElement('span');
-            span.innerText = char;
+            span.textContent = char; // textContent is slightly faster than innerText
             span.className = 'default'; 
-            this.spanCache.push(span);
-            fragment.appendChild(span);
+            this.#spanCache.push(span);
+            fragment.append(span);
         });
 
-        // Ghost cursor (extra space at end)
+        // Ghost cursor
         const cursorSpan = document.createElement('span');
         cursorSpan.innerHTML = '&nbsp;'; 
         cursorSpan.className = 'default';
-        this.spanCache.push(cursorSpan);
-        fragment.appendChild(cursorSpan);
+        this.#spanCache.push(cursorSpan);
+        fragment.append(cursorSpan);
 
-        this.dom.textDisplay.innerHTML = '';
-        this.dom.textDisplay.appendChild(fragment);
+        // Modern DOM wipe and replace
+        this.#dom.textDisplay.replaceChildren(fragment);
     }
 
-    /**
-     * Calculates line height to set the window size for auto-scrolling visual.
-     */
     setWindowSize() {
-        if (this.spanCache.length === 0) return;
+        if (this.#spanCache.length === 0) return;
         
-        const sampleSpan = this.spanCache[0];
+        const sampleSpan = this.#spanCache[0];
         const computedStyle = window.getComputedStyle(sampleSpan);
         const lineHeight = parseFloat(computedStyle.lineHeight) || sampleSpan.offsetHeight;
 
-        const wrapperStyle = window.getComputedStyle(this.dom.textWrapper);
+        const wrapperStyle = window.getComputedStyle(this.#dom.textWrapper);
         const padding = parseFloat(wrapperStyle.paddingTop) + parseFloat(wrapperStyle.paddingBottom);
         
-        const totalHeight = (lineHeight * this.config.visibleLines) + padding;
+        const totalHeight = (lineHeight * this.#config.visibleLines) + padding;
 
-        this.dom.textWrapper.style.height = `${totalHeight}px`;
-        this.dom.textWrapper.style.overflow = 'hidden'; 
+        this.#dom.textWrapper.style.height = `${totalHeight}px`;
+        this.#dom.textWrapper.style.overflow = 'hidden'; 
     }
 
-    /**
-     * Main draw function.
-     */
     render(uiState, stats) {
-        this.dom.wpmDisplay.innerText = stats.wpm;
-        this.dom.accuracyDisplay.innerText = stats.accuracy;
+        // Safe check using Optional Chaining
+        this.#dom.wpmDisplay.innerText = stats?.wpm ?? 0;
+        this.#dom.accuracyDisplay.innerText = stats?.accuracy ?? 100;
         
-        this.updateCharacterClasses(uiState);
-        this.scrollCursorIntoView(uiState.cursorPos);
+        this.#updateCharacterClasses(uiState);
+        this.#scrollCursorIntoView(uiState.cursorPos);
     }
 
-    updateCharacterClasses({ characters, cursorPos }) {
-        for (let i = 0; i < this.spanCache.length; i++) {
-            const span = this.spanCache[i];
+    // Private method
+    #updateCharacterClasses({ characters, cursorPos }) {
+        for (let i = 0; i < this.#spanCache.length; i++) {
+            const span = this.#spanCache[i];
             const charData = characters[i];
             
-            // Build class string
             let newClass = charData ? charData.state : 'default';
 
             if (i === cursorPos) newClass += ' cursor';
-            if (charData && charData.state === 'incorrect') newClass += ' underline';
+            if (charData?.state === 'incorrect') newClass += ' underline';
 
-            // Only touch DOM if class actually changed
+            // DOM touch minimization
             if (span.className !== newClass) span.className = newClass;
         }
     }
     
-    scrollCursorIntoView(cursorPos) {
-        const activeSpan = this.spanCache[cursorPos];
+    // Private method
+    #scrollCursorIntoView(cursorPos) {
+        const activeSpan = this.#spanCache[cursorPos];
         if (!activeSpan) return;
 
         activeSpan.scrollIntoView({ 
