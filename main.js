@@ -1,6 +1,6 @@
-// script.js
+// main.js
 
-import { TypingGame } from './TypingGame.js';
+import { TypingEngine } from './TypingEngine.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Define configuration
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         accuracyDisplay: document.getElementById('accuracy'),
     };
 
-    // 3. Start
-    const game = new TypingGame(config, domElements);
-    game.init();
+    // 3. Start the Engine
+    const engine = new TypingEngine(config, domElements);
+    engine.init();
 });

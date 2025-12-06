@@ -7,13 +7,13 @@ export class Renderer {
         this.spanCache = []; 
     }
 
+    /**
+     * Creates the initial span elements for the text.
+     */
     initializeText(originalText) {
         this.spanCache = [];
         const fragment = document.createDocumentFragment();
 
-        // SIMPLIFIED: Just create linear spans. 
-        // The browser's native text engine handles word wrapping perfectly 
-        // now that we are using 'display: block' in CSS.
         originalText.split('').forEach(char => {
             const span = document.createElement('span');
             span.innerText = char;
@@ -22,7 +22,7 @@ export class Renderer {
             fragment.appendChild(span);
         });
 
-        // Ghost cursor
+        // Ghost cursor (extra space at end)
         const cursorSpan = document.createElement('span');
         cursorSpan.innerHTML = '&nbsp;'; 
         cursorSpan.className = 'default';
@@ -33,6 +33,9 @@ export class Renderer {
         this.dom.textDisplay.appendChild(fragment);
     }
 
+    /**
+     * Calculates line height to set the window size for auto-scrolling visual.
+     */
     setWindowSize() {
         if (this.spanCache.length === 0) return;
         
@@ -49,6 +52,9 @@ export class Renderer {
         this.dom.textWrapper.style.overflow = 'hidden'; 
     }
 
+    /**
+     * Main draw function.
+     */
     render(uiState, stats) {
         this.dom.wpmDisplay.innerText = stats.wpm;
         this.dom.accuracyDisplay.innerText = stats.accuracy;
@@ -61,11 +67,14 @@ export class Renderer {
         for (let i = 0; i < this.spanCache.length; i++) {
             const span = this.spanCache[i];
             const charData = characters[i];
+            
+            // Build class string
             let newClass = charData ? charData.state : 'default';
 
             if (i === cursorPos) newClass += ' cursor';
             if (charData && charData.state === 'incorrect') newClass += ' underline';
 
+            // Only touch DOM if class actually changed
             if (span.className !== newClass) span.className = newClass;
         }
     }

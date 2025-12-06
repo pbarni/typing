@@ -1,111 +1,112 @@
-// TypingGame.js
+// TypingEngine.js
 
 import { generateText } from './TextGenerator.js';
-import { analyzeState } from './GameLogic.js';
+import { computeGameState } from './StateAnalyzer.js';
 import { Renderer } from './Renderer.js';
 import { ErrorLogger } from './ErrorLogger.js';
-import * as Rules from './InputRules.js'; // Import our new rules
+import * as Policy from './InputPolicy.js';
 
-export class TypingGame {
+export class TypingEngine {
     constructor(config, domElements) {
         this.config = config;
         this.dom = domElements;
         this.renderer = new Renderer(this.dom, this.config); 
         
+        // Game State
         this.originalText = "";
-        this.log = []; 
-        this.isGameActive = false;
+        this.historyLog = []; // Renamed from 'log' to 'historyLog' for clarity
+        this.isRunning = false;
         this.startTime = 0; 
 
-        // Debugging Access
-        window.game = this;
+        // Expose to Global Scope for ErrorLogger
+        window.engine = this;
         window.Debug = ErrorLogger;
     }
 
     init() {
         this.bindEvents();
-        this.startNewGame();
+        this.startSession();
         ErrorLogger.printHelp();
     }
 
     bindEvents() {
-        this.dom.resetButton.addEventListener('click', () => this.startNewGame());
+        this.dom.resetButton.addEventListener('click', () => this.startSession());
         
-        // Input Controls
-        this.dom.textInput.addEventListener('keydown', (e) => this.handleKeydown(e));
+        // Keydown: Handles Permissions & Blocking (The Policy Layer)
+        this.dom.textInput.addEventListener('keydown', (e) => this.handleInputIntent(e));
         
-        // UI Sync (Handles Visuals)
+        // Input/Keyup: Handles Visual Updates (The View Layer)
         ['input', 'keyup'].forEach(event => {
-            this.dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.syncUI()));
+            this.dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.updateLoop()));
         });
 
+        // Focus trap
         document.body.addEventListener('click', () => this.dom.textInput.focus());
     }
 
-    handleKeydown(event) {
-        if (!this.isGameActive) return;
+    /**
+     * Decides if an input is allowed based on Policy.
+     */
+    handleInputIntent(event) {
+        if (!this.isRunning) return;
 
-        // 1. Filter "System" keys (F12, Ctrl+C, etc)
-        // If we should ignore it, we return immediately and let the browser handle it.
-        // Note: We might want to preventDefault on Navigation keys specifically, 
-        // but for now returning lets the text input behave normally (or do nothing).
-        if (Rules.shouldIgnoreInput(event)) {
-            // Special case: We usually want to block Cursor movement in the textarea
+        // 1. Check System Filters (F12, Nav keys, etc.)
+        if (Policy.shouldIgnoreInput(event)) {
+            // Explicitly block navigation keys to keep cursor at end
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
                 event.preventDefault();
             }
             return;
         }
 
-        // Allow Backspace to always pass through
+        // Backspace is always allowed
         if (event.key === 'Backspace') return;
 
-        // 2. Prepare Context
         const typedText = this.dom.textInput.value;
         const expectedChar = this.originalText[typedText.length];
 
-        // 3. Check "Gate" Rule (Block progress on errors)
-        if (Rules.isGateBlocking(event.key, typedText, this.originalText)) {
-            ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
-            event.preventDefault(); // Stop the character from being typed
+        // 2. Check "Gate" Policy (Block on errors)
+        if (Policy.isGateBlocking(event.key, typedText, this.originalText)) {
+            ErrorLogger.logGateBlock(typedText, this.originalText, this.historyLog);
+            event.preventDefault(); 
             return;
         }
 
-        // 4. Check "Enter -> Space" Mapping Rule
-        if (Rules.isEnterToSpaceMapping(event.key, expectedChar)) {
-            event.preventDefault(); // Don't add a newline
-            this.insertChar(' ');   // Add a space instead
+        // 3. Check "Enter -> Space" Mapping Policy
+        if (Policy.isEnterToSpaceMapping(event.key, expectedChar)) {
+            event.preventDefault(); 
+            this.insertVirtualChar(' ');   
             return;
         }
     }
 
-    insertChar(char) {
+    insertVirtualChar(char) {
         const input = this.dom.textInput;
-        // setRangeText is the modern, clean way to insert text at cursor
         input.setRangeText(char, input.selectionStart, input.selectionEnd, 'end');
-        this.syncUI();
+        this.updateLoop();
     }
 
-    startNewGame() {
-        this.isGameActive = true;
+    startSession() {
+        this.isRunning = true;
         this.startTime = 0; 
+        
         this.originalText = generateText(this.config.wordCount);
-        this.log = []; 
-        this.lastText = ''; 
+        this.historyLog = []; 
+        this.lastTextState = ''; 
         this.dom.textInput.value = ''; 
         
         this.renderer.initializeText(this.originalText); 
         
         requestAnimationFrame(() => {
             this.renderer.setWindowSize(); 
-            this.syncUI();
+            this.updateLoop();
         });
     }
 
-    syncUI() {
-        if (!this.isGameActive) return;
+    updateLoop() {
+        if (!this.isRunning) return;
 
-        // Lock Cursor to end of text
+        // Enforce Cursor Lock (UI Hack)
         const currentLength = this.dom.textInput.value.length;
         if (this.dom.textInput.selectionStart !== currentLength) {
             this.dom.textInput.selectionStart = currentLength;
@@ -114,38 +115,40 @@ export class TypingGame {
 
         const typedText = this.dom.textInput.value;
         
-        // Start timer on first char
+        // Start Timer
         if (this.startTime === 0 && typedText.length > 0) {
             this.startTime = Date.now();
         }
 
-        this.recordToLog(typedText);
+        this.recordHistory(typedText);
 
-        // Analyze and Render
-        const state = analyzeState(this.originalText, typedText, this.startTime);
+        // Analyze State
+        const state = computeGameState(this.originalText, typedText, this.startTime);
         
+        // Render
         this.renderer.render({
             characters: state.charStates,
             cursorPos: currentLength
         }, state.stats);
 
-        if (state.isGameFinished) {
-            this.isGameActive = false;
-            console.log("Finished! Final Log:", this.log);
+        // End Game Check
+        if (state.isFinished) {
+            this.isRunning = false;
+            console.log("Session Complete. History:", this.historyLog);
         }
     }
 
-    recordToLog(currentText) {
-        // ... (Log logic remains the same, it is specific to the Game instance) ...
-        const previousText = this.lastText;
+    recordHistory(currentText) {
+        const previousText = this.lastTextState;
         if (currentText === previousText) return;
 
         const timestamp = performance.now();
 
+        // Handle Deletions
         if (currentText.length < previousText.length) {
-            const charsToDelete = previousText.length - currentText.length;
-            for (let i = 0; i < charsToDelete; i++) {
-                this.log.push({
+            const count = previousText.length - currentText.length;
+            for (let i = 0; i < count; i++) {
+                this.historyLog.push({
                     ts: timestamp,
                     action: 'delete',
                     char: 'Backspace', 
@@ -156,15 +159,17 @@ export class TypingGame {
             }
         }
 
+        // Handle Insertions
         if (currentText.length > previousText.length) {
             const addedText = currentText.substring(previousText.length);
             addedText.split('').forEach((char, i) => {
                 const currentPos = previousText.length + i;
                 const expectedChar = this.originalText[currentPos];
                 
+                // End of text guard
                 if (!expectedChar) return; 
 
-                this.log.push({
+                this.historyLog.push({
                     ts: timestamp,
                     action: 'insert',
                     char: char,
@@ -175,6 +180,6 @@ export class TypingGame {
             });
         }
         
-        this.lastText = currentText;
+        this.lastTextState = currentText;
     }
 }

@@ -6,7 +6,6 @@ const WORDS = [
 
 /**
  * Generates a random string of text.
- * Now a pure function instead of a static class.
  */
 export function generateText(wordCount) {
     if (wordCount === 0) return "";
