@@ -45,12 +45,21 @@ export class TypingGame {
     handleKeydown(event) {
         if (!this.isGameActive) return;
 
+        // 1. Block Navigation Keys that move the cursor
         const forbiddenKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Delete'];
         if (forbiddenKeys.includes(event.key)) {
             event.preventDefault();
             return;
         }
 
+        // 2. Allow Browser Function Keys (F5, F11, F12, etc.)
+        // This regex ensures we match "F1"..."F12" but NOT just the letter "F"
+        if (/^F\d+$/.test(event.key)) {
+            return;
+        }
+
+        // 3. Allow Modifiers and Backspace
+        // This ensures commands like Ctrl+R or Ctrl+Shift+I still work
         if (event.key === 'Backspace' || event.ctrlKey || event.metaKey || event.altKey) return;
 
         const typedText = this.dom.textInput.value;
@@ -60,7 +69,7 @@ export class TypingGame {
 
         const expectedChar = this.originalText[nextIndex];
 
-        // --- 1. ENTER KEY MAPPING ---
+        // --- 4. ENTER KEY MAPPING ---
         if (event.key === 'Enter') {
             event.preventDefault(); 
 
@@ -75,11 +84,15 @@ export class TypingGame {
             return;
         }
 
-        // --- 2. TypeRacer Gate (Stop on Error) ---
+        // --- 5. TypeRacer Gate (Stop on Error) ---
         if (expectedChar === ' ') {
             const isCorrectSoFar = this.originalText.startsWith(typedText);
             if (!isCorrectSoFar) {
                 ErrorLogger.logGateBlock(typedText, this.originalText, this.log);
+                
+                // This prevents the space, but strictly calling preventDefault 
+                // on everything else is what broke F12.
+                // Now that F-keys are handled above, this is safe.
                 event.preventDefault();
             }
         }
