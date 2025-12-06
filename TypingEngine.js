@@ -68,7 +68,8 @@ export class TypingEngine {
 
         // Policy Checks
         if (Policy.isGateBlocking(event.key, typedText, this.#originalText)) {
-            ErrorLogger.logGateBlock(typedText, this.#originalText);
+            // Updated: Pass the attempted key for better error messages
+            ErrorLogger.logGateBlock(typedText, this.#originalText, event.key);
             event.preventDefault(); 
             return;
         }
@@ -146,7 +147,6 @@ export class TypingEngine {
         // 1. Detect Deletions
         if (currentText.length < previousText.length) {
             const count = previousText.length - currentText.length;
-            // Use Array.from to create an iterator for cleaner loops
             Array.from({ length: count }).forEach((_, i) => {
                 this.#historyLog.push({
                     ts: timestamp,

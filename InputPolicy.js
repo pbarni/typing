@@ -33,12 +33,26 @@ export function isEnterToSpaceMapping(key, expectedChar) {
 
 /**
  * Policy: The Gate (TypeRacer Rule).
+ * Updated to enforce Strict Word Boundaries.
  */
 export function isGateBlocking(key, typedText, originalText) {
-    if (key !== ' ' && key !== 'Enter') return false;
+    const currentIndex = typedText.length;
+    const expectedChar = originalText[currentIndex];
 
-    // startsWith is efficient and widely supported
-    const isCorrectSoFar = originalText.startsWith(typedText);
-    
-    return !isCorrectSoFar;
+    // Case A: User explicitly presses Space (or Enter)
+    // We must ensure the word typed so far is completely correct.
+    if (key === ' ' || key === 'Enter') {
+        const isCorrectSoFar = originalText.startsWith(typedText);
+        return !isCorrectSoFar; // Block if there are typos
+    }
+
+    // Case B: User is AT a word boundary (Expected Char is Space)
+    // But they typed a letter/number instead (trying to skip the space).
+    if (expectedChar === ' ') {
+        // Since we know 'key' is NOT Space/Enter (passed Case A),
+        // we must block this input to force the user to finish the word correctly.
+        return true; 
+    }
+
+    return false;
 }
