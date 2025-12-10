@@ -17,11 +17,8 @@ export class TypingEngine {
     #generator;
     #dom;
 
-    // The Constructor is now an "Injection Port"
     constructor(domElements, dependencies) {
         this.#dom = domElements;
-        
-        // We unpack the tools we were given
         this.#renderer = dependencies.renderer;
         this.#rules = dependencies.rules;
         this.#generator = dependencies.generator;
@@ -41,19 +38,30 @@ export class TypingEngine {
 
     #bindEvents() {
         this.#dom.resetButton.addEventListener('click', () => this.startSession());
-        this.#dom.textInput.addEventListener('keydown', (e) => this.#handleInput(e));
         
+        // Input Handling
+        this.#dom.textInput.addEventListener('keydown', (e) => this.#handleInput(e));
         ['input', 'keyup'].forEach(event => {
             this.#dom.textInput.addEventListener(event, () => requestAnimationFrame(() => this.#updateLoop()));
         });
-        
-        document.body.addEventListener('click', () => this.#dom.textInput.focus());
+
+        // FOCUS MANAGEMENT
+        // When the user clicks the visible text wrapper, we must focus the hidden input.
+        this.#dom.textWrapper.addEventListener('click', (e) => {
+            this.#dom.textInput.focus();
+        });
+
+        // Global fallback: If user clicks background (but not buttons), reclaim focus.
+        document.body.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A' && e.target !== this.#dom.textInput) {
+                this.#dom.textInput.focus();
+            }
+        });
     }
 
     #handleInput(event) {
         if (!this.#isRunning) return;
 
-        // 1. Ask Policy: "Should I ignore this?"
         if (this.#rules.shouldIgnoreInput(event)) {
             if (event.key.startsWith('Arrow')) event.preventDefault();
             return;
@@ -64,7 +72,12 @@ export class TypingEngine {
         const typedText = this.#dom.textInput.value;
         const expectedChar = this.#originalText[typedText.length];
 
-        // 2. Ask Policy: "Is this input blocked?"
+        // Guard: Prevent typing past the end of the text
+        if (!expectedChar) {
+            event.preventDefault();
+            return;
+        }
+
         const blockCheck = this.#rules.shouldBlockInput(event.key, typedText, this.#originalText);
         
         if (blockCheck.isBlocked) {
@@ -73,7 +86,6 @@ export class TypingEngine {
             return;
         }
 
-        // 3. Ask Policy: "Should I map Enter to Space?"
         if (this.#rules.isEnterMappedToSpace(event.key, expectedChar)) {
             event.preventDefault();
             this.#insertVirtualChar(' ');
@@ -94,8 +106,6 @@ export class TypingEngine {
         this.#lastTextState = ''; 
         this.#dom.textInput.value = ''; 
         
-        // FIX: No hardcoded number here. 
-        // The generator already has the config.
         this.#originalText = this.#generator.generate(); 
         
         this.#renderer.initializeText(this.#originalText); 
@@ -103,12 +113,14 @@ export class TypingEngine {
         requestAnimationFrame(() => {
             this.#renderer.setWindowSize(); 
             this.#updateLoop();
+            this.#dom.textInput.focus(); // Force focus immediately
         });
     }
 
     #updateLoop() {
         if (!this.#isRunning) return;
 
+        // Force cursor to end of text
         const currentLength = this.#dom.textInput.value.length;
         if (this.#dom.textInput.selectionStart !== currentLength) {
             this.#dom.textInput.selectionStart = currentLength;
@@ -144,7 +156,14 @@ export class TypingEngine {
         if (currentText.length < previousText.length) {
              const count = previousText.length - currentText.length;
              Array.from({ length: count }).forEach((_, i) => {
-                this.#historyLog.push({ ts: timestamp, action: 'delete', char: 'Backspace', expected: null, index: previousText.length - 1 - i, isError: false });
+                this.#historyLog.push({ 
+                    ts: timestamp, 
+                    action: 'delete', 
+                    char: 'Backspace', 
+                    expected: null, 
+                    index: previousText.length - 1 - i, 
+                    isError: false 
+                });
              });
         } else if (currentText.length > previousText.length) {
             const addedText = currentText.substring(previousText.length);
@@ -152,7 +171,14 @@ export class TypingEngine {
                 const currentPos = previousText.length + i;
                 const expectedChar = this.#originalText[currentPos];
                 if (expectedChar) {
-                    this.#historyLog.push({ ts: timestamp, action: 'insert', char: char, expected: expectedChar, index: currentPos, isError: char !== expectedChar });
+                    this.#historyLog.push({ 
+                        ts: timestamp, 
+                        action: 'insert', 
+                        char: char, 
+                        expected: expectedChar, 
+                        index: currentPos, 
+                        isError: char !== expectedChar 
+                    });
                 }
             });
         }
