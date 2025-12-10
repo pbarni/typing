@@ -18,19 +18,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 2. Instantiate the "Modules" (The Logic Parts)
-    // We pass the config to the parts that need it.
     
     // Renderer needs config for visibleLines
     const renderer = new Renderer(dom, GameConfig);
     
-    // Policy needs mechanics (strictSpace, stopOnError)
-    const rules = new InputPolicy(GameConfig.mechanics);
+    // Policy has built-in mechanics now, no config needed
+    const rules = new InputPolicy();
     
     // Generator needs wordCount
     const generator = new TextGenerator(GameConfig);
 
     // 3. Assemble the Engine
-    // "Here is your renderer, here are your rules, here is your generator. Go."
     const engine = new TypingEngine(dom, {
         renderer: renderer,
         rules: rules,
